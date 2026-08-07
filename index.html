@@ -154,7 +154,7 @@ html, body {
   display:grid;
   grid-template-columns:1fr 1fr;
   gap:12px;
-  padding:18px var(--sp-5) 28px;
+  /* padding:18px var(--sp-5) 28px; */
 }
 .tile{
   background:var(--surface);
@@ -692,14 +692,6 @@ html, body {
 <section id="screen-water" class="screen module-screen">
   
   <div class="module-body" style="margin-top:0;padding-top:16px;">
-    <div class="summary-card" style="text-align:center;">
-      <div id="water-progress-wrap" class="progress-ring-wrap"></div>
-      <div style="font-size:13px;color:var(--ink-soft);font-weight:600;margin-top:2px;" id="water-label">0 de 8 copos hoje</div>
-      <div class="sheet-actions" style="margin-top:16px;">
-        <button class="btn btn-ghost" onclick="addWater(-1)">− copo</button>
-        <button class="btn btn-primary" style="background:var(--c-water)" onclick="addWater(1)">+ copo</button>
-      </div>
-    </div>
     <div class="summary-card">
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
         <strong style="font-size:14px;">Peso</strong>
@@ -708,6 +700,15 @@ html, body {
       
       <div class="list" id="weight-list"></div>
     </div>
+    <div class="summary-card" style="text-align:center;">
+      <div id="water-progress-wrap" class="progress-ring-wrap"></div>
+      <div style="font-size:13px;color:var(--ink-soft);font-weight:600;margin-top:2px;" id="water-label">0 de 8 copos hoje</div>
+      <div class="sheet-actions" style="margin-top:16px;">
+        <button class="btn btn-ghost" onclick="addWater(-1)">− copo</button>
+        <button class="btn btn-primary" style="background:var(--c-water)" onclick="addWater(1)">+ copo</button>
+      </div>
+    </div>
+    
   </div>
   <div class="module-header" id="water-header">
     <button class="back-btn" onclick="goHome()">←</button>
