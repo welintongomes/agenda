@@ -8,6 +8,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#F7F5F0">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💼</text></svg>">
 <style>
 :root{
   --paper:#F7F5F0;
@@ -181,7 +182,7 @@ html, body {
   text-align:center;
   font-size:12px;
   color:var(--ink-faint);
-  padding:0 var(--sp-6) 24px;
+  padding: 7px 15px 2px 15px;
   line-height:1.5;
 }
 /* para barra de pesquisa---------------------- */
@@ -353,8 +354,8 @@ html, body {
 
 .fab{
   position:absolute;
-  right:20px;
-  bottom:calc(24px + env(safe-area-inset-bottom));
+  left:20px;
+  bottom:calc(80px + env(safe-area-inset-bottom));
   width:56px;height:56px;
   border-radius:50%;
   border:none;
@@ -430,7 +431,13 @@ html, body {
   color:var(--ink-soft);
 }
 .seg button.active{border-color:var(--accent);color:var(--accent);background:rgba(53,105,92,.08);}
-.chip-picker{display:flex;flex-wrap:wrap;gap:8px;}
+.chip-picker {
+    margin: 15px;
+    overflow-x: scroll;
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 8px;
+}
 .chip-picker button{
   padding:8px 13px;
   border-radius:var(--r-pill);
@@ -487,7 +494,7 @@ html, body {
 .month-nav button{background:none;border:none;font-size:17px;color:var(--ink-soft);width:30px;height:30px;}
 .month-nav span{font-size:13.5px;font-weight:700;text-transform:capitalize;min-width:120px;text-align:center;}
 
-.quick-add-row{display:flex;gap:8px;margin-bottom:14px;}
+.quick-add-row{display:flex;gap:8px;flex-direction: row-reverse; margin: 5px 14px 12px 13px;}
 .quick-add-row input{
   flex:1;
   border:1.5px solid var(--line);
@@ -552,8 +559,16 @@ html, body {
   <div class="home-header">
     <div class="greet"><span id="greet-emoji">👋</span><span id="greet-text">Olá</span></div>
     <div class="date" id="date-text"></div>
-    <div class="stat-row" id="stat-row"></div>
     
+  
+    <!-- NOVO: Contêiner de Alertas Importantes -->
+  <div id="home-alerts" style="padding: 16px var(--sp-5) 0;"></div>
+  
+  <!-- NOVO: Contêiner de Resultados (Inicia oculto) -->
+  <div class="list" id="search-results" style="display: none; padding: 16px var(--sp-5) 100px;overflow-y: auto;max-height: 58vh;"></div>
+
+  <div class="tile-grid" id="tile-grid"></div>
+  <div id="alinhabaixo">
     <!-- NOVO: Barra de Busca Global com botão de limpar -->
     <div class="search-bar">
       <div class="search-wrapper">
@@ -562,22 +577,14 @@ html, body {
       </div>
     </div>
 
-    <!-- NOVO: Contêiner de Alertas Importantes -->
-  <div id="home-alerts" style="padding: 16px var(--sp-5) 0;"></div>
-  
-  <!-- NOVO: Contêiner de Resultados (Inicia oculto) -->
-  <div class="list" id="search-results" style="display: none; padding: 16px var(--sp-5) 100px;overflow-y: auto;max-height: 58vh;"></div>
-
-  <div class="tile-grid" id="tile-grid"></div>
-  <div class="hint-footer">Tudo fica salvo aqui no celular, sem internet. Adicione esta página à tela de início pra abrir rapidinho, como um app. ✨</div>
+    <div class="stat-row" id="stat-row"></div>
+  </div>
+  <div class="hint-footer">Tudo fica salvo aqui no celular, mesmo sem internet.✨</div>
 </section>
 
 <!-- ===== TAREFAS ===== -->
 <section id="screen-tasks" class="screen module-screen">
-  <div class="module-header" id="tasks-header">
-    <button class="back-btn" onclick="goHome()">←</button>
-    <h2>Tarefas</h2>
-  </div>
+  
   <div class="filter-tabs">
     <button class="f-tab active" data-f="pending">Pendentes</button>
     <button class="f-tab" data-f="done">Concluídas</button>
@@ -585,24 +592,26 @@ html, body {
   </div>
   <div class="module-body"><div class="list" id="tasks-list"></div></div>
   <button class="fab" id="tasks-fab" onclick="openTaskForm()">+</button>
+  <div class="module-header" id="tasks-header">
+    <button class="back-btn" onclick="goHome()">←</button>
+    <h2>Tarefas</h2>
+  </div>
 </section>
 
 <!-- ===== NOTAS ===== -->
 <section id="screen-notes" class="screen module-screen">
+  
+  <div class="module-body" style="margin-top:0;padding-top:16px;"><div class="list" id="notes-list"></div></div>
+  <button class="fab" id="notes-fab" onclick="openNoteForm()">+</button>
   <div class="module-header" id="notes-header">
     <button class="back-btn" onclick="goHome()">←</button>
     <h2>Notas</h2>
   </div>
-  <div class="module-body" style="margin-top:0;padding-top:16px;"><div class="list" id="notes-list"></div></div>
-  <button class="fab" id="notes-fab" onclick="openNoteForm()">+</button>
 </section>
 
 <!-- ===== GASTOS ===== -->
 <section id="screen-expenses" class="screen module-screen">
-  <div class="module-header" id="expenses-header">
-    <button class="back-btn" onclick="goHome()">←</button>
-    <h2>Gastos</h2>
-  </div>
+  
   <div class="module-body" style="margin-top:0;padding-top:16px;">
     <div class="month-nav">
       <button onclick="shiftExpMonth(-1)">‹</button>
@@ -617,63 +626,70 @@ html, body {
     <div class="list" id="expenses-list"></div>
   </div>
   <button class="fab" id="expenses-fab" onclick="openExpenseForm()">+</button>
+  <div class="module-header" id="expenses-header">
+    <button class="back-btn" onclick="goHome()">←</button>
+    <h2>Gastos</h2>
+  </div>
 </section>
 
 <!-- ===== HÁBITOS ===== -->
 <section id="screen-habits" class="screen module-screen">
+  
+  <div class="module-body" style="margin-top:0;padding-top:16px;"><div class="list" id="habits-list"></div></div>
+  <button class="fab" id="habits-fab" onclick="openHabitForm()">+</button>
   <div class="module-header" id="habits-header">
     <button class="back-btn" onclick="goHome()">←</button>
     <h2>Hábitos</h2>
   </div>
-  <div class="module-body" style="margin-top:0;padding-top:16px;"><div class="list" id="habits-list"></div></div>
-  <button class="fab" id="habits-fab" onclick="openHabitForm()">+</button>
 </section>
 
 <!-- ===== COMPRAS ===== -->
 <section id="screen-shopping" class="screen module-screen">
-  <div class="module-header" id="shopping-header">
-    <button class="back-btn" onclick="goHome()">←</button>
-    <h2>Lista de compras</h2>
-    <button class="header-action" onclick="clearCheckedShopping()" title="Limpar marcados">🧹</button>
-  </div>
+  
   <div class="module-body" style="margin-top:0;padding-top:16px;">
-    <div class="quick-add-row">
+    
+    <div class="list" id="shopping-list"></div>
+  </div>
+  <div class="quick-add-row">
       <input type="text" id="shopping-quick-input" placeholder="Adicionar item…" onkeydown="if(event.key==='Enter')quickAddShopping()">
       <button style="background:var(--c-shopping)" onclick="quickAddShopping()">+</button>
     </div>
-    <div class="list" id="shopping-list"></div>
+  <div class="module-header" id="shopping-header">
+    <button class="back-btn" onclick="goHome()">←</button>
+    
+    <h2>Lista de compras</h2>
+    <button class="header-action" onclick="clearCheckedShopping()" title="Limpar marcados">🧹</button>
   </div>
 </section>
 
 <!-- ===== DIÁRIO ===== -->
 <section id="screen-journal" class="screen module-screen">
+  
+  <div class="module-body" style="margin-top:0;padding-top:16px;"><div class="list" id="journal-list"></div></div>
+  <button class="fab" id="journal-fab" onclick="openJournalForm()">+</button>
   <div class="module-header" id="journal-header">
     <button class="back-btn" onclick="goHome()">←</button>
     <h2>Diário</h2>
   </div>
-  <div class="module-body" style="margin-top:0;padding-top:16px;"><div class="list" id="journal-list"></div></div>
-  <button class="fab" id="journal-fab" onclick="openJournalForm()">+</button>
 </section>
 
 <!-- ===== CONTATOS ===== -->
 <section id="screen-contacts" class="screen module-screen">
-  <div class="module-header" id="contacts-header">
-    <button class="back-btn" onclick="goHome()">←</button>
-    <h2>Contatos e dados</h2>
-  </div>
+  
   <div class="module-body" style="margin-top:0;padding-top:16px;">
     <div class="chip-picker" id="contacts-filter" style="margin-bottom:14px;"></div>
     <div class="list" id="contacts-list"></div>
   </div>
   <button class="fab" id="contacts-fab" onclick="openContactForm()">+</button>
+  <div class="module-header" id="contacts-header">
+    <button class="back-btn" onclick="goHome()">←</button>
+    <h2>Contatos e dados</h2>
+  </div>
 </section>
 
 <!-- ===== ÁGUA E SAÚDE ===== -->
 <section id="screen-water" class="screen module-screen">
-  <div class="module-header" id="water-header">
-    <button class="back-btn" onclick="goHome()">←</button>
-    <h2>Água e saúde</h2>
-  </div>
+  
   <div class="module-body" style="margin-top:0;padding-top:16px;">
     <div class="summary-card" style="text-align:center;">
       <div id="water-progress-wrap" class="progress-ring-wrap"></div>
@@ -688,8 +704,13 @@ html, body {
         <strong style="font-size:14px;">Peso</strong>
         <button class="icon-btn" style="color:var(--c-water)" onclick="openWeightForm()">＋</button>
       </div>
+      
       <div class="list" id="weight-list"></div>
     </div>
+  </div>
+  <div class="module-header" id="water-header">
+    <button class="back-btn" onclick="goHome()">←</button>
+    <h2>Água e saúde</h2>
   </div>
 </section>
 
@@ -1227,93 +1248,152 @@ function openExpenseForm(existing){
    HÁBITOS (Com Sistema de Temporizador Persistente)
    ============================================================ */
 async function renderHabits(){
-  const list=document.getElementById('habits-list');
-  list.innerHTML='';
-  const habits=await dbAll('habits');
-  const logs=await dbAll('habitLogs');
+  const list = document.getElementById('habits-list');
+  list.innerHTML = '';
+  const habits = await dbAll('habits');
+  const logs = await dbAll('habitLogs');
   if(!habits.length){ list.appendChild(emptyState('🔥','Nenhum hábito ainda','Toque no + para criar o primeiro')); return; }
   
-  const todayISO=todayIso();
+  const todayISO = todayIso();
   const now = Date.now();
 
-  habits.forEach(hb=>{
+  habits.forEach(hb => {
     const isTimer = hb.type === 'timer';
-    const row=h('div',{class:'item'});
+    const row = h('div',{class:'item'});
+    const grow = h('div',{class:'grow', onclick:()=>openHabitForm(hb)});
     
-    // --- LÓGICA DO BOTÃO (CHECKBOX) ---
     if (isTimer) {
+      // --- VISUAL DO CRONÔMETRO ---
       const isReady = (!hb.readyAt || hb.readyAt <= now);
-      // Se não estiver pronto, a bolinha fica verde e com a ampulheta, indicando que o tempo está correndo
       const ck = h('div',{
         class: 'check' + (isReady ? '' : ' on ck-habits'), 
         style: isReady ? '' : 'opacity: 0.8; font-size: 11px;',
-        onclick: (e)=>{ 
-          e.stopPropagation(); 
-          if(isReady) toggleHabitTimer(hb); 
-          else toast('Aguarde o tempo terminar');
-        }
+        onclick: (e)=>{ e.stopPropagation(); if(isReady) toggleHabitTimer(hb); else toast('Aguarde o tempo terminar'); }
       }, isReady ? '' : '⏳'); 
       row.appendChild(ck);
-    } else {
-      const logDates=new Set(logs.filter(l=>l.habitId===hb.id).map(l=>l.date));
-      const doneToday=logDates.has(todayISO);
-      row.appendChild(h('div',{class:'check'+(doneToday?' on ck-habits':''), onclick:(e)=>{ e.stopPropagation(); toggleHabitToday(hb.id); }}, doneToday?'✓':''));
-    }
 
-    // --- LÓGICA DOS TEXTOS E CONTADOR ---
-    const grow=h('div',{class:'grow', onclick:()=>openHabitForm(hb)});
-    grow.appendChild(h('div',{class:'i-title'}, hb.name));
-    
-    if (isTimer) {
-      const isReady = (!hb.readyAt || hb.readyAt <= now);
-      if (isReady) {
-        grow.appendChild(h('div',{class:'i-sub'}, 'Pronto para fazer'));
-      } else {
-        // Criamos um elemento com uma classe específica e um "data-ready" com o timestamp salvo
+      grow.appendChild(h('div',{class:'i-title'}, hb.name));
+      if (isReady) grow.appendChild(h('div',{class:'i-sub'}, 'Pronto para fazer'));
+      else {
         const cd = h('div',{class:'i-sub habit-timer', 'data-ready': hb.readyAt, style:'color:var(--c-habits); font-weight:700;'});
         cd.textContent = 'Calculando...';
         grow.appendChild(cd);
       }
-    } else {
-      const logDates=new Set(logs.filter(l=>l.habitId===hb.id).map(l=>l.date));
-      const doneToday=logDates.has(todayISO);
-      let streak=0;
-      const cursor=new Date();
-      if(!doneToday) cursor.setDate(cursor.getDate()-1);
-      while(logDates.has(isoDate(cursor))){ streak++; cursor.setDate(cursor.getDate()-1); }
-      grow.appendChild(h('div',{class:'i-sub'}, streak>0? ('🔥 '+streak+' dia'+(streak>1?'s':'')+' seguidos') : 'Comece hoje'));
       
-      const dots=h('div',{class:'streak-dots'});
-      for(let i=6;i>=0;i--){
-        const dd=new Date(); dd.setDate(dd.getDate()-i);
-        dots.appendChild(h('span',{class:logDates.has(isoDate(dd))?'on':''}));
+    } else {
+      // --- VISUAL DAS ETAPAS E DIAS (DIÁRIO E METAS) ---
+      const target = hb.target || 1;
+      const duration = hb.duration || 0; // Quantos dias no total?
+      
+      // Filtra os dias que você bateu a meta completa (ex: tomou as 2x)
+      const logDates = new Set(logs.filter(l => l.habitId === hb.id && (l.count || 1) >= target).map(l => l.date));
+      const totalCompletedDays = logDates.size;
+      
+      const todayLog = logs.find(l => l.habitId === hb.id && l.date === todayISO);
+      const countToday = todayLog ? (todayLog.count || 1) : 0;
+      const doneToday = countToday >= target;
+      
+      // Verifica se a meta de dias foi batida
+      const isTotallyFinished = duration > 0 && totalCompletedDays >= duration;
+
+      // Design do botão de Check
+      let checkText = '';
+      let extraClass = '';
+      let extraStyle = '';
+      
+      if (isTotallyFinished && doneToday) {
+        checkText = '🌟'; // Estrela de meta finalizada!
+        extraClass = ' on ck-habits';
+        extraStyle = 'background: var(--c-expenses); border-color: var(--c-expenses); font-size: 14px;'; // Fica dourado
+      } else if (doneToday) {
+        checkText = '✓';
+        extraClass = ' on ck-habits';
+      } else if (countToday > 0) {
+        checkText = countToday;
+        extraStyle = 'border-color: var(--c-habits); color: var(--c-habits); font-size: 13px; font-weight: 700; background: rgba(62,122,93,0.12);';
       }
-      grow.appendChild(dots);
+
+      row.appendChild(h('div',{
+        class: 'check' + extraClass, 
+        style: extraStyle,
+        onclick: (e)=>{ e.stopPropagation(); stepHabitToday(hb); }
+      }, checkText));
+
+      grow.appendChild(h('div',{class:'i-title'}, hb.name));
+      
+      // Textos e Visualizações (Barra de progresso vs Bolinhas)
+      if (duration > 0) {
+        // MODO COM PRAZO (Ex: 12 dias)
+        let subText = isTotallyFinished ? `🎉 Concluído! (${duration} dias)` : `Progresso: ${totalCompletedDays} de ${duration} dias`;
+        if (!isTotallyFinished && target > 1 && !doneToday && countToday > 0) {
+            subText = `Hoje: ${countToday} de ${target} vezes`;
+        }
+        grow.appendChild(h('div',{class:'i-sub', style: isTotallyFinished ? 'color: var(--c-expenses); font-weight:700;' : ''}, subText));
+        
+        // Barra de progresso linear
+        const pct = Math.min((totalCompletedDays / duration) * 100, 100);
+        const pbWrap = h('div', {style: 'height: 6px; background: var(--line); border-radius: 4px; margin-top: 8px; overflow: hidden;'});
+        pbWrap.appendChild(h('div', {style: `height: 100%; background: ${isTotallyFinished ? 'var(--c-expenses)' : 'var(--c-habits)'}; width: ${pct}%; transition: width 0.3s ease;`}));
+        grow.appendChild(pbWrap);
+
+      } else {
+        // MODO INFINITO (Sem prazo, mostra dias seguidos e as 7 bolinhas)
+        let streak = 0;
+        const cursor = new Date();
+        if(!logDates.has(todayISO)) cursor.setDate(cursor.getDate()-1);
+        while(logDates.has(isoDate(cursor))){ streak++; cursor.setDate(cursor.getDate()-1); }
+        
+        let subText = streak > 0 ? ('🔥 '+streak+' dia'+(streak>1?'s':'')+' seguidos') : 'Comece hoje';
+        if (target > 1 && !doneToday) subText = countToday > 0 ? `Hoje: ${countToday} de ${target} vezes` : `Meta: ${target} vezes ao dia`;
+        grow.appendChild(h('div',{class:'i-sub'}, subText));
+        
+        const dots = h('div',{class:'streak-dots'});
+        for(let i=6;i>=0;i--){
+          const dd=new Date(); dd.setDate(dd.getDate()-i);
+          dots.appendChild(h('span',{class:logDates.has(isoDate(dd))?'on':''}));
+        }
+        grow.appendChild(dots);
+      }
     }
 
     row.appendChild(grow);
     row.appendChild(h('button',{class:'icon-btn', onclick:(e)=>{
       e.stopPropagation();
       confirmDelete('habits', hb.id, async ()=>{
-        const allLogs=await dbAll('habitLogs');
-        for(const l of allLogs.filter(x=>x.habitId===hb.id)) await dbDel('habitLogs', l.id);
+        const allLogs = await dbAll('habitLogs');
+        for(const l of allLogs.filter(x=>x.habitId === hb.id)) await dbDel('habitLogs', l.id);
         renderHabits(); updateHomeStats();
       });
     }},'✕'));
+    
     list.appendChild(row);
   });
   
-  // Chama a atualização dos relógios imediatamente ao renderizar
   updateHabitTimersUI();
 }
+   
+async function stepHabitToday(habit) {
+  const todayISO = todayIso();
+  const logs = await dbAll('habitLogs');
+  let existing = logs.find(l => l.habitId === habit.id && l.date === todayISO);
+  const target = habit.target || 1; // Pega a meta, se não tiver é 1
 
-async function toggleHabitToday(habitId){
-  const todayISO=todayIso();
-  const logs=await dbAll('habitLogs');
-  const existing=logs.find(l=>l.habitId===habitId && l.date===todayISO);
-  if(existing) await dbDel('habitLogs', existing.id);
-  else await dbAdd('habitLogs', {habitId:habitId, date:todayISO});
-  renderHabits(); updateHomeStats();
+  if (!existing) {
+    // Primeiro clique do dia (Etapa 1)
+    await dbAdd('habitLogs', { habitId: habit.id, date: todayISO, count: 1 });
+  } else {
+    // Se já bateu a meta e clicou de novo, ele zera (desmarca)
+    if (existing.count >= target) {
+      await dbDel('habitLogs', existing.id);
+    } else {
+      // Se não bateu a meta ainda, soma +1 etapa
+      existing.count = (existing.count || 1) + 1;
+      await dbPut('habitLogs', existing);
+    }
+  }
+  
+  renderHabits(); 
+  updateHomeStats();
 }
 
 // Nova função exclusiva para iniciar o temporizador
@@ -1330,67 +1410,80 @@ async function toggleHabitTimer(hb) {
   toast('Cronômetro iniciado!');
 }
 
+
 function openHabitForm(existing){
-  const isEdit=!!existing;
+  const isEdit = !!existing;
   let type = (existing && existing.type) || 'diario';
-  let interval = (existing && existing.interval) || 30; // Padrão: 30 minutos
+  let interval = (existing && existing.interval) || 30; 
+  let target = (existing && existing.target) || 1; 
+  let duration = (existing && existing.duration) || ''; // NOVO: Duração em dias
 
   openSheet({
-    title: isEdit?'Editar hábito':'Novo hábito',
-    buildFields:(box)=>{
-      box.appendChild(fieldWrap('Nome do hábito', h('input',{type:'text', id:'f-name', placeholder:'Ex: Beber água, Alongar…', value:(existing&&existing.name)||''})));
+    title: isEdit ? 'Editar hábito/meta' : 'Novo hábito/meta',
+    buildFields: (box) => {
+      box.appendChild(fieldWrap('Nome (Ex: Remédio, Água)', h('input',{type:'text', id:'f-name', value:(existing&&existing.name)||''})));
 
-      // Botões para escolher o Tipo
       const seg = h('div',{class:'seg'});
-      [['diario','Uma vez ao dia'],['timer','Por tempo (Cronômetro)']].forEach(pair=>{
+      [['diario','Diário (Etapas)'],['timer','Cronômetro']].forEach(pair=>{
         seg.appendChild(h('button',{type:'button', class:type===pair[0]?'active':'', onclick:(e)=>{
           type = pair[0];
           seg.querySelectorAll('button').forEach(b=>b.classList.remove('active'));
           e.currentTarget.classList.add('active');
-          document.getElementById('f-interval-wrap').style.display = type==='timer'?'flex':'none';
+          
+          document.getElementById('f-interval-wrap').style.display = type==='timer' ? 'flex' : 'none';
+          document.getElementById('f-target-wrap').style.display = type==='diario' ? 'flex' : 'none';
+          document.getElementById('f-duration-wrap').style.display = type==='diario' ? 'flex' : 'none';
         }}, pair[1]));
       });
-      box.appendChild(fieldWrap('Frequência', seg));
+      box.appendChild(fieldWrap('Tipo', seg));
 
-      // Seleção do Intervalo de Tempo (escondido se for diário)
+      // Campo de Etapas
+      const targetInput = h('input',{type:'number', id:'f-target', min:'1', value:target});
+      const targetWrap = h('div', {id:'f-target-wrap', style: type==='diario' ? 'display:flex; flex-direction:column; gap:6px;' : 'display:none; flex-direction:column; gap:6px;'});
+      targetWrap.appendChild(h('label', {style:'font-size:12.5px;font-weight:700;color:var(--ink-soft);text-transform:uppercase;'}, 'Quantas etapas/vezes ao dia?'));
+      targetWrap.appendChild(targetInput);
+      box.appendChild(targetWrap);
+
+      // NOVO: Campo de Duração (Dias totais)
+      const durationInput = h('input',{type:'number', id:'f-duration', min:'1', placeholder:'Ex: 12 (deixe vazio para infinito)', value:duration});
+      const durationWrap = h('div', {id:'f-duration-wrap', style: type==='diario' ? 'display:flex; flex-direction:column; gap:6px;' : 'display:none; flex-direction:column; gap:6px;'});
+      durationWrap.appendChild(h('label', {style:'font-size:12.5px;font-weight:700;color:var(--ink-soft);text-transform:uppercase;'}, 'Por quantos dias? (Opcional)'));
+      durationWrap.appendChild(durationInput);
+      box.appendChild(durationWrap);
+
+      // Campo de Intervalo (Timer)
       const intInput = h('select', {id:'f-interval'});
-      [
-        [1, '1 minuto (Apenas para testar)'], 
-        [15, '15 minutos'], 
-        [30, '30 minutos'], 
-        [60, '1 hora'], 
-        [120, '2 horas'], 
-        [240, '4 horas']
-      ].forEach(o => {
+      [[1, '1 minuto (Teste)'], [15, '15 min'], [30, '30 min'], [60, '1 hora'], [120, '2 horas']].forEach(o => {
         const opt = h('option', {value:o[0]}, o[1]);
         if (interval == o[0]) opt.selected = true;
         intInput.appendChild(opt);
       });
-      
       const intWrap = h('div', {id:'f-interval-wrap', style: type==='timer' ? 'display:flex; flex-direction:column; gap:6px;' : 'display:none; flex-direction:column; gap:6px;'});
-      intWrap.appendChild(h('label', {style:'font-size:12.5px;font-weight:700;color:var(--ink-soft);text-transform:uppercase; letter-spacing:.3px;'}, 'Repetir a cada'));
+      intWrap.appendChild(h('label', {style:'font-size:12.5px;font-weight:700;color:var(--ink-soft);text-transform:uppercase;'}, 'Repetir a cada'));
       intWrap.appendChild(intInput);
       box.appendChild(intWrap);
     },
     onSubmit: async ()=>{
-      const name=document.getElementById('f-name').value.trim();
+      const name = document.getElementById('f-name').value.trim();
       if(!name){ toast('Dê um nome ao hábito'); return false; }
-      const finalInterval = parseInt(document.getElementById('f-interval').value);
 
       const obj = existing || {createdAt:Date.now()};
       obj.name = name;
       obj.type = type;
       
-      if (type === 'timer') {
-         obj.interval = finalInterval;
-         if (!obj.readyAt) obj.readyAt = 0; // Se é novo, já nasce "Pronto"
+      if (type === 'diario') {
+         obj.target = parseInt(document.getElementById('f-target').value) || 1;
+         obj.duration = parseInt(document.getElementById('f-duration').value) || 0; // Salva os dias
+      } else if (type === 'timer') {
+         obj.interval = parseInt(document.getElementById('f-interval').value);
+         if (!obj.readyAt) obj.readyAt = 0;
       }
 
       if(existing) await dbPut('habits',obj); else await dbAdd('habits',obj);
       renderHabits(); updateHomeStats();
-      toast('Hábito salvo');
+      toast('Salvo');
     },
-    onDelete: isEdit? ()=>confirmDelete('habits', existing.id, ()=>{renderHabits();updateHomeStats();}) : null
+    onDelete: isEdit ? ()=>confirmDelete('habits', existing.id, ()=>{renderHabits();updateHomeStats();}) : null
   });
 }
 /* ============================================================
