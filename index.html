@@ -68,7 +68,7 @@ html, body {
 
 #app {
   position: relative;
-  max-width: 480px;
+  max-width: 1000px;
   margin: 0 auto;
   height: 100%; /* Preenche exatamente os 100dvh do body */
   background: var(--paper);
@@ -566,7 +566,7 @@ html, body {
   <div id="home-alerts" style="padding: 16px var(--sp-5) 0;"></div>
   
   <!-- NOVO: Contêiner de Resultados (Inicia oculto) -->
-  <div class="list" id="search-results" style="display: none; padding: 16px var(--sp-5) 100px;"></div>
+  <div class="list" id="search-results" style="display: none; padding: 16px var(--sp-5) 100px;overflow-y: auto;max-height: 58vh;"></div>
 
   <div class="tile-grid" id="tile-grid"></div>
   <div class="hint-footer">Tudo fica salvo aqui no celular, sem internet. Adicione esta página à tela de início pra abrir rapidinho, como um app. ✨</div>
