@@ -131,19 +131,19 @@ html, body {
   scrollbar-width:none;
 }
 .stat-row::-webkit-scrollbar{display:none;}
-.stat-chip{
-  flex:0 0 auto;
-  display:flex;
-  align-items:center;
-  gap:6px;
-  background:var(--surface);
-  border:1px solid var(--line);
-  padding:8px 14px;
-  border-radius:var(--r-pill);
-  font-size:13px;
-  font-weight:600;
-  white-space:nowrap;
-  box-shadow:0 1px 2px rgba(var(--shadow-rgb),.04);
+.stat-chip {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    padding: 8px 10px;
+    border-radius: var(--r-pill);
+    font-size: 12px;
+    font-weight: 200;
+    white-space: nowrap;
+    box-shadow: 0 1px 2px rgba(var(--shadow-rgb),.04);
 }
 .stat-chip .dot{width:7px;height:7px;border-radius:50%;flex:0 0 auto;}
 
@@ -995,6 +995,12 @@ function buildStatChips(pendingCount, balance, wCount){
   row.appendChild(h('button',{class:'stat-chip', onclick:()=>openModule('water')},[
     h('span',{class:'dot', style:'background:var(--c-water)'}), '💧 '+wCount+'/8'
   ]));
+  // NOVO: Chip discreto de Configurações / Backup
+  row.appendChild(h('button',{
+    class:'stat-chip', 
+    style: 'padding-left: 12px; padding-right: 12px; font-size: 16px;', // Um pouco mais quadradinho
+    onclick: openSettings
+  }, '⚙️'));
 }
 function setupGreeting(){
   const hr=new Date().getHours();
@@ -1249,7 +1255,7 @@ function openExpenseForm(existing){
 /* ============================================================
    HÁBITOS (Com Sistema de Temporizador Persistente)
    ============================================================ */
-async function renderHabits(){
+  async function renderHabits(){
   const list = document.getElementById('habits-list');
   list.innerHTML = '';
   const habits = await dbAll('habits');
@@ -1265,48 +1271,75 @@ async function renderHabits(){
     const grow = h('div',{class:'grow', onclick:()=>openHabitForm(hb)});
     
     if (isTimer) {
-      // --- VISUAL DO CRONÔMETRO ---
-      const isReady = (!hb.readyAt || hb.readyAt <= now);
-      const ck = h('div',{
-        class: 'check' + (isReady ? '' : ' on ck-habits'), 
-        style: isReady ? '' : 'opacity: 0.8; font-size: 11px;',
-        onclick: (e)=>{ e.stopPropagation(); if(isReady) toggleHabitTimer(hb); else toast('Aguarde o tempo terminar'); }
-      }, isReady ? '' : '⏳'); 
-      row.appendChild(ck);
+      // --- MODO CRONÔMETRO COM SÉRIES/ETAPAS ---
+      const target = hb.target || 0;
+      const currentStep = hb.currentStep || 0;
+      
+      const isWaiting = (hb.readyAt && hb.readyAt > now);
+      const isDone = target > 0 && currentStep >= target;
+
+      let checkText = '';
+      let extraClass = '';
+      let extraStyle = '';
+      
+      if (isWaiting) {
+        checkText = '⏳';
+        extraStyle = 'opacity: 0.8; font-size: 11px;';
+      } else if (isDone) {
+        checkText = '✓';
+        extraClass = ' on ck-habits';
+      } else if (currentStep > 0) {
+        checkText = currentStep;
+        extraStyle = 'border-color: var(--c-habits); color: var(--c-habits); font-size: 13px; font-weight: 700; background: rgba(62,122,93,0.12);';
+      }
+
+      row.appendChild(h('div',{
+        class: 'check' + extraClass, 
+        style: extraStyle,
+        onclick: (e)=>{ e.stopPropagation(); if(!isWaiting) toggleHabitTimer(hb); else toast('Aguarde o tempo terminar'); }
+      }, checkText));
 
       grow.appendChild(h('div',{class:'i-title'}, hb.name));
-      if (isReady) grow.appendChild(h('div',{class:'i-sub'}, 'Pronto para fazer'));
-      else {
+      
+      if (isWaiting) {
         const cd = h('div',{class:'i-sub habit-timer', 'data-ready': hb.readyAt, style:'color:var(--c-habits); font-weight:700;'});
-        cd.textContent = 'Calculando...';
+        cd.textContent = 'Calculando intervalo...';
         grow.appendChild(cd);
+      } else if (isDone) {
+        grow.appendChild(h('div',{class:'i-sub', style:'color:var(--c-habits); font-weight:500;'}, 'Série de treino concluída!'));
+      } else {
+        let subText = target > 0 
+          ? (currentStep > 0 ? `Progresso: ${currentStep} de ${target} repetições` : `Meta: ${target} repetições`)
+          : (currentStep > 0 ? `${currentStep} ciclos já feitos` : 'Pronto para iniciar');
+        grow.appendChild(h('div',{class:'i-sub'}, subText));
       }
       
     } else {
-      // --- VISUAL DAS ETAPAS E DIAS (DIÁRIO E METAS) ---
+      // --- MODO DIÁRIO E METAS ---
       const target = hb.target || 1;
-      const duration = hb.duration || 0; // Quantos dias no total?
+      const duration = hb.duration || 0; 
       
-      // Filtra os dias que você bateu a meta completa (ex: tomou as 2x)
       const logDates = new Set(logs.filter(l => l.habitId === hb.id && (l.count || 1) >= target).map(l => l.date));
       const totalCompletedDays = logDates.size;
       
       const todayLog = logs.find(l => l.habitId === hb.id && l.date === todayISO);
       const countToday = todayLog ? (todayLog.count || 1) : 0;
       const doneToday = countToday >= target;
-      
-      // Verifica se a meta de dias foi batida
       const isTotallyFinished = duration > 0 && totalCompletedDays >= duration;
 
-      // Design do botão de Check
+      const isWaitingInterval = (!doneToday && countToday > 0 && countToday < target && hb.readyAt && hb.readyAt > now);
+
       let checkText = '';
       let extraClass = '';
       let extraStyle = '';
       
-      if (isTotallyFinished && doneToday) {
-        checkText = '🌟'; // Estrela de meta finalizada!
+      if (isWaitingInterval) {
+        checkText = '⏳';
+        extraStyle = 'opacity: 0.8; font-size: 11px;';
+      } else if (isTotallyFinished && doneToday) {
+        checkText = '🌟'; 
         extraClass = ' on ck-habits';
-        extraStyle = 'background: var(--c-expenses); border-color: var(--c-expenses); font-size: 14px;'; // Fica dourado
+        extraStyle = 'background: var(--c-expenses); border-color: var(--c-expenses); font-size: 14px;';
       } else if (doneToday) {
         checkText = '✓';
         extraClass = ' on ck-habits';
@@ -1323,38 +1356,44 @@ async function renderHabits(){
 
       grow.appendChild(h('div',{class:'i-title'}, hb.name));
       
-      // Textos e Visualizações (Barra de progresso vs Bolinhas)
-      if (duration > 0) {
-        // MODO COM PRAZO (Ex: 12 dias)
-        let subText = isTotallyFinished ? `🎉 Concluído! (${duration} dias)` : `Progresso: ${totalCompletedDays} de ${duration} dias`;
-        if (!isTotallyFinished && target > 1 && !doneToday && countToday > 0) {
-            subText = `Hoje: ${countToday} de ${target} vezes`;
-        }
-        grow.appendChild(h('div',{class:'i-sub', style: isTotallyFinished ? 'color: var(--c-expenses); font-weight:700;' : ''}, subText));
+      if (isWaitingInterval) {
+        const cd = h('div',{class:'i-sub habit-timer', 'data-ready': hb.readyAt, style:'color:var(--c-habits); font-weight:700;'});
+        cd.textContent = 'Calculando intervalo...';
+        grow.appendChild(cd);
         
-        // Barra de progresso linear
-        const pct = Math.min((totalCompletedDays / duration) * 100, 100);
-        const pbWrap = h('div', {style: 'height: 6px; background: var(--line); border-radius: 4px; margin-top: 8px; overflow: hidden;'});
-        pbWrap.appendChild(h('div', {style: `height: 100%; background: ${isTotallyFinished ? 'var(--c-expenses)' : 'var(--c-habits)'}; width: ${pct}%; transition: width 0.3s ease;`}));
-        grow.appendChild(pbWrap);
-
+        if (duration > 0) {
+          const pct = Math.min((totalCompletedDays / duration) * 100, 100);
+          const pbWrap = h('div', {style: 'height: 6px; background: var(--line); border-radius: 4px; margin-top: 8px; overflow: hidden;'});
+          pbWrap.appendChild(h('div', {style: `height: 100%; background: var(--c-habits); width: ${pct}%; transition: width 0.3s ease;`}));
+          grow.appendChild(pbWrap);
+        }
       } else {
-        // MODO INFINITO (Sem prazo, mostra dias seguidos e as 7 bolinhas)
-        let streak = 0;
-        const cursor = new Date();
-        if(!logDates.has(todayISO)) cursor.setDate(cursor.getDate()-1);
-        while(logDates.has(isoDate(cursor))){ streak++; cursor.setDate(cursor.getDate()-1); }
-        
-        let subText = streak > 0 ? ('🔥 '+streak+' dia'+(streak>1?'s':'')+' seguidos') : 'Comece hoje';
-        if (target > 1 && !doneToday) subText = countToday > 0 ? `Hoje: ${countToday} de ${target} vezes` : `Meta: ${target} vezes ao dia`;
-        grow.appendChild(h('div',{class:'i-sub'}, subText));
-        
-        const dots = h('div',{class:'streak-dots'});
-        for(let i=6;i>=0;i--){
-          const dd=new Date(); dd.setDate(dd.getDate()-i);
-          dots.appendChild(h('span',{class:logDates.has(isoDate(dd))?'on':''}));
+        if (duration > 0) {
+          let subText = isTotallyFinished ? `🎉 Concluído! (${duration} dias)` : `Progresso: ${totalCompletedDays} de ${duration} dias`;
+          if (!isTotallyFinished && target > 1 && !doneToday && countToday > 0) subText = `Hoje: ${countToday} de ${target} vezes`;
+          grow.appendChild(h('div',{class:'i-sub', style: isTotallyFinished ? 'color: var(--c-expenses); font-weight:700;' : ''}, subText));
+          
+          const pct = Math.min((totalCompletedDays / duration) * 100, 100);
+          const pbWrap = h('div', {style: 'height: 6px; background: var(--line); border-radius: 4px; margin-top: 8px; overflow: hidden;'});
+          pbWrap.appendChild(h('div', {style: `height: 100%; background: ${isTotallyFinished ? 'var(--c-expenses)' : 'var(--c-habits)'}; width: ${pct}%; transition: width 0.3s ease;`}));
+          grow.appendChild(pbWrap);
+        } else {
+          let streak = 0;
+          const cursor = new Date();
+          if(!logDates.has(todayISO)) cursor.setDate(cursor.getDate()-1);
+          while(logDates.has(isoDate(cursor))){ streak++; cursor.setDate(cursor.getDate()-1); }
+          
+          let subText = streak > 0 ? ('🔥 '+streak+' dia'+(streak>1?'s':'')+' seguidos') : 'Comece hoje';
+          if (target > 1 && !doneToday) subText = countToday > 0 ? `Hoje: ${countToday} de ${target} vezes` : `Meta: ${target} vezes ao dia`;
+          grow.appendChild(h('div',{class:'i-sub'}, subText));
+          
+          const dots = h('div',{class:'streak-dots'});
+          for(let i=6;i>=0;i--){
+            const dd=new Date(); dd.setDate(dd.getDate()-i);
+            dots.appendChild(h('span',{class:logDates.has(isoDate(dd))?'on':''}));
+          }
+          grow.appendChild(dots);
         }
-        grow.appendChild(dots);
       }
     }
 
@@ -1375,55 +1414,99 @@ async function renderHabits(){
 }
    
 async function stepHabitToday(habit) {
+  const now = Date.now();
+  
+  // Impede clicar se o relógio de intervalo estiver correndo
+  if (habit.readyAt && habit.readyAt > now) {
+    toast('Aguarde o tempo de intervalo terminar!');
+    return;
+  }
+
   const todayISO = todayIso();
   const logs = await dbAll('habitLogs');
   let existing = logs.find(l => l.habitId === habit.id && l.date === todayISO);
-  const target = habit.target || 1; // Pega a meta, se não tiver é 1
+  const target = habit.target || 1; 
 
   if (!existing) {
-    // Primeiro clique do dia (Etapa 1)
+    // Primeira etapa do dia
     await dbAdd('habitLogs', { habitId: habit.id, date: todayISO, count: 1 });
+    existing = { count: 1 };
   } else {
-    // Se já bateu a meta e clicou de novo, ele zera (desmarca)
     if (existing.count >= target) {
+      // Zerando o hábito (Desmarcando)
       await dbDel('habitLogs', existing.id);
+      existing = { count: 0 };
+      habit.readyAt = 0; // Tira qualquer relógio que estivesse salvo
+      await dbPut('habits', habit);
     } else {
-      // Se não bateu a meta ainda, soma +1 etapa
-      existing.count = (existing.count || 1) + 1;
+      // Mais uma etapa concluída
+      existing.count++;
       await dbPut('habitLogs', existing);
     }
   }
   
+  // MÁGICA: Se concluiu uma etapa, mas ainda não bateu a meta, e existe intervalo: aciona o relógio!
+  if (existing.count > 0 && existing.count < target && habit.interval > 0) {
+     habit.readyAt = now + (habit.interval * 60000);
+     await dbPut('habits', habit);
+  } else if (existing.count >= target) {
+     // Garante que o relógio desliga ao concluir a última do dia
+     habit.readyAt = 0; 
+     await dbPut('habits', habit);
+  }
+
   renderHabits(); 
   updateHomeStats();
 }
 
 // Nova função exclusiva para iniciar o temporizador
 async function toggleHabitTimer(hb) {
-  // Salva no banco de dados o Timestamp futuro (hora atual + intervalo em minutos convertido para milissegundos)
-  hb.readyAt = Date.now() + (hb.interval * 60000); 
+  const now = Date.now();
+  const target = parseInt(hb.target) || 0; 
+  hb.currentStep = hb.currentStep || 0;
+
+  if (target > 0 && hb.currentStep >= target) {
+    // Se já bateu a meta (ex: 4 séries feitas), clicar de novo zera para o próximo treino
+    hb.currentStep = 0;
+    hb.readyAt = 0;
+  } else {
+    // Subimos uma etapa (fez uma repetição)
+    hb.currentStep++;
+    
+    // Opcional: salva no banco de logs
+    await dbAdd('habitLogs', {habitId: hb.id, date: todayIso(), timestamp: now, step: hb.currentStep});
+
+    if (target === 0 || hb.currentStep < target) {
+      // Se for infinito OU ainda faltar repetições: Inicia o cronômetro de descanso
+      hb.readyAt = now + (hb.interval * 60000);
+    } else {
+      // Atingiu o limite! A série inteira acabou, não precisa ligar o cronômetro
+      hb.readyAt = 0;
+    }
+  }
+
   await dbPut('habits', hb);
-  
-  // Registramos no log diário também, para manter histórico de quantas vezes você fez no dia
-  await dbAdd('habitLogs', {habitId: hb.id, date: todayIso(), timestamp: Date.now()});
-  
   renderHabits(); 
   updateHomeStats();
-  toast('Cronômetro iniciado!');
+  
+  if (hb.readyAt > 0) toast('Cronômetro iniciado!');
+  else if (target > 0 && hb.currentStep >= target) toast('Série concluída! 🎉');
 }
-
 
 function openHabitForm(existing){
   const isEdit = !!existing;
   let type = (existing && existing.type) || 'diario';
-  let interval = (existing && existing.interval) || 30; 
-  let target = (existing && existing.target) || 1; 
-  let duration = (existing && existing.duration) || ''; // NOVO: Duração em dias
+  let target = existing && existing.target !== undefined ? existing.target : 1; 
+  let duration = (existing && existing.duration) || ''; 
+  
+  let interval = (existing && existing.interval) || 0;
+  let intH = interval >= 60 ? Math.floor(interval / 60) : '';
+  let intM = interval % 60 > 0 ? interval % 60 : (interval > 0 && interval < 60 ? interval : '');
 
   openSheet({
     title: isEdit ? 'Editar hábito/meta' : 'Novo hábito/meta',
     buildFields: (box) => {
-      box.appendChild(fieldWrap('Nome (Ex: Remédio, Água)', h('input',{type:'text', id:'f-name', value:(existing&&existing.name)||''})));
+      box.appendChild(fieldWrap('Nome (Ex: Supino, Água)', h('input',{type:'text', id:'f-name', value:(existing&&existing.name)||''})));
 
       const seg = h('div',{class:'seg'});
       [['diario','Diário (Etapas)'],['timer','Cronômetro']].forEach(pair=>{
@@ -1432,53 +1515,67 @@ function openHabitForm(existing){
           seg.querySelectorAll('button').forEach(b=>b.classList.remove('active'));
           e.currentTarget.classList.add('active');
           
-          document.getElementById('f-interval-wrap').style.display = type==='timer' ? 'flex' : 'none';
-          document.getElementById('f-target-wrap').style.display = type==='diario' ? 'flex' : 'none';
           document.getElementById('f-duration-wrap').style.display = type==='diario' ? 'flex' : 'none';
+          document.getElementById('f-int-label').textContent = type==='timer' ? 'Tempo do Cronômetro:' : 'Tempo entre etapas (Opcional):';
+          document.getElementById('lbl-target').textContent = type==='timer' ? 'Quantas repetições? (0 = infinito)' : 'Quantas etapas/vezes ao dia?';
         }}, pair[1]));
       });
       box.appendChild(fieldWrap('Tipo', seg));
 
-      // Campo de Etapas
-      const targetInput = h('input',{type:'number', id:'f-target', min:'1', value:target});
-      const targetWrap = h('div', {id:'f-target-wrap', style: type==='diario' ? 'display:flex; flex-direction:column; gap:6px;' : 'display:none; flex-direction:column; gap:6px;'});
-      targetWrap.appendChild(h('label', {style:'font-size:12.5px;font-weight:700;color:var(--ink-soft);text-transform:uppercase;'}, 'Quantas etapas/vezes ao dia?'));
+      // Etapas / Repetições (Agora aparece para AMBOS)
+      const targetInput = h('input',{type:'number', id:'f-target', min:'0', value:target});
+      const targetWrap = h('div', {id:'f-target-wrap', style: 'display:flex; flex-direction:column; gap:6px;'});
+      targetWrap.appendChild(h('label', {id:'lbl-target', style:'font-size:12.5px;font-weight:700;color:var(--ink-soft);text-transform:uppercase;'}, 
+        type==='timer' ? 'Quantas repetições? (0 = infinito)' : 'Quantas etapas/vezes ao dia?'
+      ));
       targetWrap.appendChild(targetInput);
       box.appendChild(targetWrap);
 
-      // NOVO: Campo de Duração (Dias totais)
-      const durationInput = h('input',{type:'number', id:'f-duration', min:'1', placeholder:'Ex: 12 (deixe vazio para infinito)', value:duration});
+      // Duração de Dias (Apenas Diário)
+      const durationInput = h('input',{type:'number', id:'f-duration', min:'1', placeholder:'Ex: 12 (vazio p/ infinito)', value:duration});
       const durationWrap = h('div', {id:'f-duration-wrap', style: type==='diario' ? 'display:flex; flex-direction:column; gap:6px;' : 'display:none; flex-direction:column; gap:6px;'});
       durationWrap.appendChild(h('label', {style:'font-size:12.5px;font-weight:700;color:var(--ink-soft);text-transform:uppercase;'}, 'Por quantos dias? (Opcional)'));
       durationWrap.appendChild(durationInput);
       box.appendChild(durationWrap);
 
-      // Campo de Intervalo (Timer)
-      const intInput = h('select', {id:'f-interval'});
-      [[1, '1 minuto (Teste)'], [15, '15 min'], [30, '30 min'], [60, '1 hora'], [120, '2 horas']].forEach(o => {
-        const opt = h('option', {value:o[0]}, o[1]);
-        if (interval == o[0]) opt.selected = true;
-        intInput.appendChild(opt);
-      });
-      const intWrap = h('div', {id:'f-interval-wrap', style: type==='timer' ? 'display:flex; flex-direction:column; gap:6px;' : 'display:none; flex-direction:column; gap:6px;'});
-      intWrap.appendChild(h('label', {style:'font-size:12.5px;font-weight:700;color:var(--ink-soft);text-transform:uppercase;'}, 'Repetir a cada'));
-      intWrap.appendChild(intInput);
+      // Campos de Horas e Minutos
+      const intLabel = h('label', {id: 'f-int-label', style:'font-size:12.5px;font-weight:700;color:var(--ink-soft);text-transform:uppercase;'}, 
+        type === 'timer' ? 'Tempo do Cronômetro:' : 'Tempo entre etapas (Opcional):'
+      );
+      const intWrapRow = h('div', {style:'display:flex; gap:8px;'});
+      intWrapRow.appendChild(h('input', {type:'number', id:'f-int-h', placeholder:'Horas', min:'0', value:intH, style:'flex:1'}));
+      intWrapRow.appendChild(h('input', {type:'number', id:'f-int-m', placeholder:'Min', min:'0', max:'59', value:intM, style:'flex:1'}));
+      const intWrap = h('div', {style:'display:flex; flex-direction:column; gap:6px; margin-top:6px;'});
+      intWrap.appendChild(intLabel);
+      intWrap.appendChild(intWrapRow);
       box.appendChild(intWrap);
     },
     onSubmit: async ()=>{
       const name = document.getElementById('f-name').value.trim();
       if(!name){ toast('Dê um nome ao hábito'); return false; }
 
+      const hrs = parseInt(document.getElementById('f-int-h').value) || 0;
+      const mins = parseInt(document.getElementById('f-int-m').value) || 0;
+      const totalMinutes = (hrs * 60) + mins;
+
+      if (type === 'timer' && totalMinutes === 0) {
+        toast('Informe o tempo do cronômetro!');
+        return false;
+      }
+
       const obj = existing || {createdAt:Date.now()};
       obj.name = name;
       obj.type = type;
+      obj.interval = totalMinutes;
       
+      const tg = parseInt(document.getElementById('f-target').value);
+      obj.target = isNaN(tg) ? (type === 'timer' ? 0 : 1) : tg; 
+
       if (type === 'diario') {
-         obj.target = parseInt(document.getElementById('f-target').value) || 1;
-         obj.duration = parseInt(document.getElementById('f-duration').value) || 0; // Salva os dias
+         obj.duration = parseInt(document.getElementById('f-duration').value) || 0; 
       } else if (type === 'timer') {
-         obj.interval = parseInt(document.getElementById('f-interval').value);
          if (!obj.readyAt) obj.readyAt = 0;
+         if (obj.currentStep === undefined) obj.currentStep = 0;
       }
 
       if(existing) await dbPut('habits',obj); else await dbAdd('habits',obj);
@@ -1488,6 +1585,7 @@ function openHabitForm(existing){
     onDelete: isEdit ? ()=>confirmDelete('habits', existing.id, ()=>{renderHabits();updateHomeStats();}) : null
   });
 }
+
 /* ============================================================
    LISTA DE COMPRAS
    ============================================================ */
@@ -1926,6 +2024,108 @@ async function init(){
   setupGreeting();
   wireFilterTabs();
   await updateHomeStats();
+}
+/* ============================================================
+   CONFIGURAÇÕES E BACKUP
+   ============================================================ */
+function openSettings() {
+  openSheet({
+    title: 'Backup e Dados',
+    buildFields: (box) => {
+      const hint = h('div', {style: 'font-size:13px; color:var(--ink-soft); margin-bottom:16px; line-height:1.5; text-align:center;'}, 'Seus dados ficam apenas na memória deste celular. Salve um arquivo de backup para não perder nada caso limpe o navegador.');
+      box.appendChild(hint);
+      
+      const btnExport = h('button', {
+        type: 'button', 
+        class: 'btn btn-primary', 
+        style: 'width:100%; margin-bottom:12px; background:var(--ink);', // Botão escuro estiloso
+        onclick: () => { closeSheet(); exportAllData(); }
+      }, '💾 Salvar Backup (Exportar)');
+      
+      const btnImport = h('button', {
+        type: 'button', 
+        class: 'btn btn-ghost', 
+        style: 'width:100%;',
+        onclick: () => { closeSheet(); triggerImport(); }
+      }, '📂 Restaurar Backup (Importar)');
+
+      box.appendChild(btnExport);
+      box.appendChild(btnImport);
+    },
+    submitLabel: 'Fechar',
+    onSubmit: () => { return true; } // O botão "Fechar" apenas fecha a gaveta
+  });
+}
+
+// Junta todo o banco de dados e baixa um arquivo .json
+async function exportAllData() {
+  try {
+    const data = {};
+    for (const store of STORES) {
+      data[store] = await dbAll(store);
+    }
+    const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `central-backup-${todayIso()}.json`; // Ex: central-backup-2026-08-07.json
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast('Backup salvo na pasta Downloads!');
+  } catch (e) {
+    toast('Erro ao salvar backup.');
+    console.error(e);
+  }
+}
+
+// Cria um "input de arquivo" fantasma e abre a galeria/arquivos do celular
+function triggerImport() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.json';
+  input.onchange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      try {
+        const data = JSON.parse(ev.target.result);
+        if (confirm('⚠️ ATENÇÃO: Isso vai apagar os dados atuais e substituir pelo conteúdo do arquivo. Deseja continuar?')) {
+          await importAllData(data);
+        }
+      } catch (err) {
+        toast('Arquivo de backup inválido.');
+        console.error(err);
+      }
+    };
+    reader.readAsText(file);
+  };
+  input.click();
+}
+
+// Injeta os dados do arquivo de volta no IndexedDB
+async function importAllData(data) {
+  toast('Restaurando...');
+  try {
+    for (const store of STORES) {
+      if (data[store]) {
+        // 1. Apaga os dados antigos deste store
+        const items = await dbAll(store);
+        for (const item of items) await dbDel(store, item.id);
+        
+        // 2. Insere os dados do backup
+        for (const item of data[store]) await dbPut(store, item);
+      }
+    }
+    toast('Tudo pronto! Recarregando...');
+    setTimeout(() => location.reload(), 1200); // Reinicia a página para carregar os visuais novos
+  } catch (e) {
+    toast('Erro ao restaurar dados.');
+    console.error(e);
+  }
 }
 /* ============================================================
    MOTOR DO CRONÔMETRO
