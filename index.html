@@ -122,7 +122,7 @@ html, body {
   text-transform:capitalize;
 }
 .stat-row{
-  justify-content: center;
+  justify-content: space-evenly;
   display:flex;
   gap:8px;
   margin-top:16px;
@@ -148,6 +148,8 @@ html, body {
 .stat-chip .dot{width:7px;height:7px;border-radius:50%;flex:0 0 auto;}
 
 .tile-grid{
+  scrollbar-width: thin;
+  scrollbar-color: rgb(96 93 82 / 55%) rgba(255, 255, 255, .05);
   margin-top: 8px;
   overflow-y: auto;
   max-height: 58vh;
@@ -276,13 +278,13 @@ html, body {
   padding:7px 14px;
   border-radius:var(--r-pill);
   border:none;
-  background:rgba(255,255,255,.22);
+  background: rgb(38 34 34 / 21%);
   color:#fff;
   font-size:12.5px;
   font-weight:600;
   opacity:.75;
 }
-.f-tab.active{background:#fff;color:var(--ink);opacity:1;}
+.f-tab.active{background:#fff;color: #1c1b1b;opacity:1;}
 
 .module-body{
   flex:1;
@@ -549,6 +551,28 @@ html, body {
 
 @media (prefers-reduced-motion: reduce){
   .screen,.tile,.fab,.sheet,.check{transition:none !important;}
+}
+
+/* ============================================================
+   TEMA ESCURO (DARK MODE)
+   ============================================================ */
+html.dark-theme, body.dark-theme {
+  background: #0A0A0A;
+}
+body.dark-theme {
+  --paper: #141414;
+  --surface: #1E1E1E;
+  --surface-2: #2A2A2A;
+  --ink: #F0F0F0;
+  --ink-soft: #A8A8A8;
+  --ink-faint: #666666;
+  --line: #333333;
+  --shadow-rgb: 0, 0, 0;
+  --tint-1: #1E1E1E !important;
+  --tint-2: #141414 !important;
+}
+body.dark-theme #app {
+  box-shadow: 0 0 60px rgba(0,0,0,0.5);
 }
 </style>
 </head>
@@ -995,10 +1019,20 @@ function buildStatChips(pendingCount, balance, wCount){
   row.appendChild(h('button',{class:'stat-chip', onclick:()=>openModule('water')},[
     h('span',{class:'dot', style:'background:var(--c-water)'}), '💧 '+wCount+'/8'
   ]));
-  // NOVO: Chip discreto de Configurações / Backup
+  
+  // NOVO: Chip de alternar Tema (Sol/Lua)
+  const isDark = document.body.classList.contains('dark-theme');
+  row.appendChild(h('button',{
+    id: 'theme-toggle-btn',
+    class:'stat-chip', 
+    style: 'padding-left: 12px; padding-right: 12px; font-size: 16px;',
+    onclick: toggleTheme
+  }, isDark ? '🌙' : '☀️'));
+
+  // Chip de Backup
   row.appendChild(h('button',{
     class:'stat-chip', 
-    style: 'padding-left: 12px; padding-right: 12px; font-size: 16px;', // Um pouco mais quadradinho
+    style: 'padding-left: 12px; padding-right: 12px; font-size: 16px;',
     onclick: openSettings
   }, '⚙️'));
 }
@@ -1523,17 +1557,17 @@ function openHabitForm(existing){
       box.appendChild(fieldWrap('Tipo', seg));
 
       // Etapas / Repetições (Agora aparece para AMBOS)
-      const targetInput = h('input',{type:'number', id:'f-target', min:'0', value:target});
-      const targetWrap = h('div', {id:'f-target-wrap', style: 'display:flex; flex-direction:column; gap:6px;'});
+const targetInput = h('input',{type:'number', id:'f-target', min:'0', value:target});
+      const targetWrap = h('div', {id:'f-target-wrap', class:'field', style: 'display:flex; flex-direction:column; gap:6px;'}); // <- ADD CLASS FIELD
       targetWrap.appendChild(h('label', {id:'lbl-target', style:'font-size:12.5px;font-weight:700;color:var(--ink-soft);text-transform:uppercase;'}, 
         type==='timer' ? 'Quantas repetições? (0 = infinito)' : 'Quantas etapas/vezes ao dia?'
       ));
       targetWrap.appendChild(targetInput);
       box.appendChild(targetWrap);
 
-      // Duração de Dias (Apenas Diário)
+      // Duração de Dias
       const durationInput = h('input',{type:'number', id:'f-duration', min:'1', placeholder:'Ex: 12 (vazio p/ infinito)', value:duration});
-      const durationWrap = h('div', {id:'f-duration-wrap', style: type==='diario' ? 'display:flex; flex-direction:column; gap:6px;' : 'display:none; flex-direction:column; gap:6px;'});
+      const durationWrap = h('div', {id:'f-duration-wrap', class:'field', style: type==='diario' ? 'display:flex; flex-direction:column; gap:6px;' : 'display:none; flex-direction:column; gap:6px;'}); // <- ADD CLASS FIELD
       durationWrap.appendChild(h('label', {style:'font-size:12.5px;font-weight:700;color:var(--ink-soft);text-transform:uppercase;'}, 'Por quantos dias? (Opcional)'));
       durationWrap.appendChild(durationInput);
       box.appendChild(durationWrap);
@@ -1545,7 +1579,8 @@ function openHabitForm(existing){
       const intWrapRow = h('div', {style:'display:flex; gap:8px;'});
       intWrapRow.appendChild(h('input', {type:'number', id:'f-int-h', placeholder:'Horas', min:'0', value:intH, style:'flex:1'}));
       intWrapRow.appendChild(h('input', {type:'number', id:'f-int-m', placeholder:'Min', min:'0', max:'59', value:intM, style:'flex:1'}));
-      const intWrap = h('div', {style:'display:flex; flex-direction:column; gap:6px; margin-top:6px;'});
+      
+      const intWrap = h('div', {class:'field', style:'display:flex; flex-direction:column; gap:6px; margin-top:6px;'}); // <- ADD CLASS FIELD
       intWrap.appendChild(intLabel);
       intWrap.appendChild(intWrapRow);
       box.appendChild(intWrap);
@@ -2011,8 +2046,29 @@ function openSearchResult(r) {
   // Se clicar no meio do texto de um item de compra, ele apenas marca/desmarca
   else if (r.type === 'shopping') toggleShopping(r.item); 
 }
+/* ============================================================
+   TEMA ESCURO
+   ============================================================ */
+function toggleTheme() {
+  const isDark = document.body.classList.toggle('dark-theme');
+  document.documentElement.classList.toggle('dark-theme', isDark);
+  localStorage.setItem('central-theme', isDark ? 'dark' : 'light');
+  
+  // Atualiza o ícone do botão instantaneamente
+  const btn = document.getElementById('theme-toggle-btn');
+  if (btn) btn.textContent = isDark ? '🌙' : '☀️';
+}
+
+function loadTheme() {
+  const saved = localStorage.getItem('central-theme');
+  if (saved === 'dark') {
+    document.body.classList.add('dark-theme');
+    document.documentElement.classList.add('dark-theme');
+  }
+}
 // fim das funçoes para pesquisa global----------------
 async function init(){
+loadTheme();
   try{
     await openDatabase();
   }catch(err){
