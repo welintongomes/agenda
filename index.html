@@ -288,7 +288,7 @@ body.dark-theme #app { box-shadow: 0 0 60px rgba(0,0,0,0.5); }
 .month-nav button{background:none;border:none;font-size:17px;color:var(--ink-soft);width:30px;height:30px;}
 .month-nav span{font-size:13.5px;font-weight:700;text-transform:capitalize;min-width:120px;text-align:center;}
 
-.quick-add-row{display:flex;gap:8px;margin-bottom:14px;}
+.quick-add-row {display: flex;gap: 8px;margin-bottom: 14px;flex-direction: row-reverse;}
 .quick-add-row input{ flex:1; border:1.5px solid var(--line); background:var(--surface); border-radius:var(--r-pill); padding:11px 16px; font-size:14.5px; outline:none; color: var(--ink);}
 .quick-add-row input:focus{border-color:var(--accent);}
 .quick-add-row button{ width:44px;height:44px; border-radius:50%; border:none; color:#fff; font-size:20px; flex:0 0 auto; }
@@ -323,7 +323,7 @@ body.dark-theme #app { box-shadow: 0 0 60px rgba(0,0,0,0.5); }
   <div id="home-alerts"></div>
   <div class="greet" style="display: flex;text-align: center;justify-content: center;padding: 20px; gap: 4px; align-items: center;"><span id="greet-emoji">🌙</span><span id="greet-text" style="font-weight: 900;font-size: 23px;">Boa noite!</span><div class="date" id="date-text">domingo, 9 de agosto</div></div>
   <div class="list" id="search-results" style="display: none; padding: 16px var(--sp-5) 100px; max-height: 491.2px;min-height: 491.1px; overflow-y: auto;"></div>
-  <div class="tile-grid" id="tile-grid" style="max-height: 460px;min-height: 459.9px; overflow-y: auto ;"></div>
+  <div class="tile-grid" id="tile-grid" style="max-height: 460px;min-height: 459.9px; overflow-y: auto ;scrollbar-color: rgb(100 98 90 / 55%) rgba(255, 255, 255, .05);scrollbar-width: thin;"></div>
   <div class="home-header"> 
     <div class="search-wrapper">
       <input type="text" id="global-search" placeholder="Buscar tarefas, notas, compras..." oninput="handleGlobalSearch()">
@@ -400,12 +400,13 @@ body.dark-theme #app { box-shadow: 0 0 60px rgba(0,0,0,0.5); }
 <section id="screen-shopping" class="screen module-screen">
   
   <div class="module-body" style="margin-top:0;padding-top:16px;">
-    <div class="quick-add-row">
+    
+    <div class="list" id="shopping-list"></div>
+  </div>
+  <div class="quick-add-row">
       <input type="text" id="shopping-quick-input" placeholder="Adicionar item…" onkeydown="if(event.key==='Enter')quickAddShopping()">
       <button style="background:var(--c-shopping)" onclick="quickAddShopping()">+</button>
     </div>
-    <div class="list" id="shopping-list"></div>
-  </div>
   <div class="module-header" id="shopping-header">
     <button class="back-btn" onclick="goHome()">←</button>
     <h2>Lista de compras</h2>
