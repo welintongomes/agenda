@@ -174,8 +174,8 @@ body.dark-theme #app { box-shadow: 0 0 60px rgba(0,0,0,0.5); }
 
 .tile-grid{ display:grid; grid-template-columns:1fr 1fr; gap:12px; padding:18px var(--sp-5) 28px; }
 .tile{
-  background:var(--surface); border:1px solid var(--line); border-radius:var(--r-lg);
-  padding:16px 14px; text-align:left; display:flex; flex-direction:column; gap:10px;
+  background:var(--surface); border:1px solid var(--line); border-radius:var(--r-lg); flex-wrap: wrap;
+  padding:16px 14px; text-align:left; display:flex; flex-direction:column; gap:10px; align-items: center;
   box-shadow:0 1px 3px rgba(var(--shadow-rgb),.05); transition:transform .12s ease, box-shadow .12s ease;
 }
 .tile:active{transform:scale(.96);box-shadow:0 1px 1px rgba(var(--shadow-rgb),.04);}
@@ -210,12 +210,19 @@ body.dark-theme #app { box-shadow: 0 0 60px rgba(0,0,0,0.5); }
 .list{display:flex;flex-direction:column;gap:10px;}
 .item{
   background:var(--surface); border:1px solid var(--line); border-radius:var(--r-md);
+  /* Prepara os itens normais para receberem a transição */
+  transition: opacity 0.3s ease, transform 0.12s ease, box-shadow 0.12s ease;
   padding:13px 14px; display:flex; align-items:flex-start; gap:11px; box-shadow:0 1px 2px rgba(var(--shadow-rgb),.04);
 }
 .item .grow{flex:1;min-width:0;}
 .item .i-title{font-size:15px;font-weight:600;line-height:1.35;word-break:break-word;}
 .item .i-sub{font-size:12.5px;color:var(--ink-soft);margin-top:3px;font-weight:500;}
 .item.done .i-title{color:var(--ink-faint);text-decoration:line-through;}
+/* ══ LAZY LOADING VIRTUAL ══ */
+.lazy-card.lazy-hidden {
+  opacity: 0;
+  pointer-events: none;
+}
 .check{
   width:23px;height:23px; border-radius:50%; border:2px solid var(--line); flex:0 0 auto;
   display:flex;align-items:center;justify-content:center; color:#fff; font-size:13px; margin-top:1px;
@@ -262,7 +269,7 @@ body.dark-theme #app { box-shadow: 0 0 60px rgba(0,0,0,0.5); }
 .seg{display:flex;gap:8px;}
 .seg button{ flex:1; padding:10px; border-radius:var(--r-sm); border:1.5px solid var(--line); background:var(--surface-2); font-size:13.5px; font-weight:700; color:var(--ink-soft); }
 .seg button.active{border-color:var(--accent);color:var(--accent);background:rgba(53,105,92,.08);}
-.chip-picker{display:flex;flex-wrap:wrap;gap:8px;}
+.chip-picker{display:flex;flex-wrap:wrap;gap:8px;justify-content: space-evenly;scrollbar-width: none;}
 .chip-picker button{ padding:8px 13px; border-radius:var(--r-pill); border:1.5px solid var(--line); background:var(--surface-2); font-size:13px; font-weight:600; color:var(--ink-soft); }
 .chip-picker button.active{background:var(--accent);border-color:var(--accent);color:#fff;}
 .emoji-picker{display:flex;justify-content:space-between;}
@@ -1029,6 +1036,7 @@ async function handleGlobalSearch() {
     
     row.appendChild(grow); resBox.appendChild(row);
   });
+  aplicarLazyLoading();
 }
 
 function openSettings() {
@@ -1114,6 +1122,7 @@ async function renderTasks(){
     row.appendChild(h('button',{class:'icon-btn', onclick:(e)=>{ e.stopPropagation(); confirmDelete('tasks', t.id, ()=>{renderTasks();updateHomeStats();}); }},'✕'));
     list.appendChild(row);
   });
+  aplicarLazyLoading();
 }
 async function toggleTask(t) {
   if (!t.done && t.recurrence === 'mensal' && t.due) {
@@ -1169,6 +1178,7 @@ async function renderNotes(){
     row.appendChild(h('button',{class:'icon-btn', onclick:(e)=>{ e.stopPropagation(); confirmDelete('notes', n.id, ()=>{renderNotes();updateHomeStats();}); }},'✕'));
     list.appendChild(row);
   });
+  aplicarLazyLoading();
 }
 function openNoteForm(existing){
   const isEdit=!!existing; let cat = (existing && existing.category) || NOTE_CATS[0];
@@ -1227,6 +1237,7 @@ async function renderExpenses(){
     row.appendChild(h('div',{class:e.type==='receita'?'money-pos':'money-neg', style:'font-size:14.5px;font-weight:700;white-space:nowrap;'}, (e.type==='receita'?'+ ':'− ')+brl(Number(e.amount))));
     list.appendChild(row);
   });
+  aplicarLazyLoading();
 }
 function openExpenseForm(existing){
   const isEdit=!!existing; let type=(existing&&existing.type)||'despesa'; let cat=(existing&&existing.category)||EXP_CATS[0];
@@ -1328,6 +1339,7 @@ async function renderHabits(){
     list.appendChild(row);
   });
   updateHabitTimersUI();
+  aplicarLazyLoading();
 }
 
 async function stepHabitToday(habit) {
@@ -1466,6 +1478,7 @@ async function renderJournal(){
     row.appendChild(grow); row.appendChild(h('button',{class:'icon-btn', onclick:(e)=>{ e.stopPropagation(); confirmDelete('journal', en.id, ()=>{renderJournal();updateHomeStats();}); }},'✕'));
     list.appendChild(row);
   });
+  aplicarLazyLoading();
 }
 function openJournalForm(existing){
   const isEdit=!!existing; let mood=(existing&&existing.mood)||MOODS[0];
@@ -1583,6 +1596,40 @@ function updateHabitTimersUI() {
   });
   if (needsRender) renderHabits(); 
 }
+/* ============================================================
+   LAZY LOADING (ALTA PERFORMANCE PARA LISTAS GIGANTES)
+   ============================================================ */
+window._lazyObserver = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+        const el = entry.target;
+        if (entry.isIntersecting) {
+            // Entrou na tela: Liga o processamento de layout/pintura e exibe
+            el.classList.remove('lazy-hidden');
+            el.style.contentVisibility = 'visible';
+        } else {
+            // Saiu da tela: Trava a altura exata antes de ocultar para não dar saltos no scroll
+            const rect = el.getBoundingClientRect();
+            if (rect.height > 0) {
+                // Math.ceil arredonda pra cima para não perder nenhum sub-pixel da caixa
+                el.style.containIntrinsicSize = `auto ${Math.ceil(rect.height)}px`;
+                el.style.contentVisibility = 'hidden'; 
+            }
+            el.classList.add('lazy-hidden');
+        }
+    });
+}, { rootMargin: '800px 0px 800px 0px' }); // Renderiza os itens que estão 800px para cima ou para baixo
+
+window.aplicarLazyLoading = () => {
+    if (!window._lazyObserver) return;
+    
+    // Varre todas as caixas de itens geradas nas listas e na Busca Global
+    const seletores = '.item:not(.lazy-card)';
+
+    document.querySelectorAll(seletores).forEach(el => {
+        el.classList.add('lazy-card');
+        window._lazyObserver.observe(el);
+    });
+};
 setInterval(updateHabitTimersUI, 1000);
 /* ============================================================
    CRIPTOGRAFIA DE NÍVEL MILITAR (VAULT)
