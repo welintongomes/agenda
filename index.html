@@ -313,6 +313,13 @@ body.dark-theme #app { box-shadow: 0 0 60px rgba(0,0,0,0.5); }
 .check.on.ck-tasks{background:var(--c-tasks);border-color:var(--c-tasks);}
 .check.on.ck-shopping{background:var(--c-shopping);border-color:var(--c-shopping);}
 .check.on.ck-habits{background:var(--c-habits);border-color:var(--c-habits);}
+/* ============================================================
+   ESTILOS DE SEGURANÇA (CADEADO)
+   ============================================================ */
+.module-screen.is-locked .module-body > *:not(.list) { display: none !important; }
+.module-screen.is-locked .filter-tabs { display: none !important; }
+.module-screen.is-locked .fab { display: none !important; }
+.module-screen.is-locked .header-action:not(.lock-btn) { display: none !important; }
 </style>
 </head>
 <body>
@@ -730,9 +737,23 @@ function goHome(){
   document.getElementById('screen-home').classList.add('active');
   updateHomeStats();
 }
+// SUBSTITUA A FUNÇÃO renderModule(key) EXISTENTE POR ESTA:
 function renderModule(key){
-  ({tasks:renderTasks, notes:renderNotes, expenses:renderExpenses, habits:renderHabits,
-    shopping:renderShopping, journal:renderJournal, contacts:renderContacts, water:renderWater})[key]();
+  const screen = document.getElementById('screen-'+key);
+  const isLocked = JSON.parse(localStorage.getItem('locked-modules')||'[]').includes(key);
+  
+  if (isLocked) {
+    screen.classList.add('is-locked');
+    const list = document.getElementById(key + '-list');
+    if (list) {
+      list.innerHTML = '';
+      list.appendChild(emptyState('🔒', 'Módulo Protegido', 'Toque no cadeado no topo para destravar.'));
+    }
+  } else {
+    screen.classList.remove('is-locked');
+    ({tasks:renderTasks, notes:renderNotes, expenses:renderExpenses, habits:renderHabits,
+      shopping:renderShopping, journal:renderJournal, contacts:renderContacts, water:renderWater})[key]();
+  }
 }
 function setSub(key, text){ const n=document.getElementById('sub-'+key); if(n) n.textContent=text; }
 
@@ -882,21 +903,26 @@ function openSettings() {
     title: 'Backup e Dados',
     buildFields: (box) => {
       box.appendChild(h('div', {style: 'font-size:13px; color:var(--ink-soft); margin-bottom:16px; line-height:1.5; text-align:center;'}, 'Seus dados ficam apenas na memória deste celular. Salve um backup para não perder nada.'));
-      box.appendChild(h('button', { type: 'button', class: 'btn btn-primary', style: 'width:100%; margin-bottom:12px; background:var(--ink);', onclick: () => { closeSheet(); exportAllData(); } }, '💾 Salvar Backup (Exportar)'));
+      box.appendChild(h('button', { type: 'button', class: 'btn btn-primary', style: 'width:100%; margin-bottom:12px; color: rebeccapurple; background:var(--ink);', onclick: () => { closeSheet(); exportAllData(); } }, '💾 Salvar Backup (Exportar)'));
       box.appendChild(h('button', { type: 'button', class: 'btn btn-ghost', style: 'width:100%;', onclick: () => { closeSheet(); triggerImport(); } }, '📂 Restaurar Backup (Importar)'));
     },
     submitLabel: 'Fechar', onSubmit: () => { return true; }
   });
 }
+
 async function exportAllData() {
   try {
     const data = {}; for (const store of STORES) data[store] = await dbAll(store);
+    // Salva a configuração de segurança no backup!
+    data['_settings'] = { masterHash: localStorage.getItem('master-hash'), lockedModules: localStorage.getItem('locked-modules') };
+    
     const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
     const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url;
     a.download = `central-backup-${todayIso()}.json`; document.body.appendChild(a); a.click();
     document.body.removeChild(a); URL.revokeObjectURL(url); toast('Backup salvo na pasta Downloads!');
   } catch (e) { toast('Erro ao salvar backup.'); console.error(e); }
 }
+
 function triggerImport() {
   const input = document.createElement('input'); input.type = 'file'; input.accept = '.json';
   input.onchange = (e) => {
@@ -905,8 +931,13 @@ function triggerImport() {
     reader.onload = async (ev) => {
       try {
         const data = JSON.parse(ev.target.result);
-        if (confirm('⚠️ ATENÇÃO: Isso vai apagar os dados atuais e substituir pelo conteúdo do arquivo. Deseja continuar?')) {
+        if (confirm('⚠️ ATENÇÃO: Isso vai substituir TUDO. Caso tenha módulos travados no backup, você precisará da Senha Mestra original deles. Deseja continuar?')) {
           toast('Restaurando...');
+          // Restaura as configurações de segurança
+          if(data['_settings']) {
+             localStorage.setItem('master-hash', data['_settings'].masterHash || '');
+             localStorage.setItem('locked-modules', data['_settings'].lockedModules || '[]');
+          }
           for (const store of STORES) {
             if (data[store]) {
               const items = await dbAll(store);
@@ -1420,6 +1451,105 @@ function updateHabitTimersUI() {
   if (needsRender) renderHabits(); 
 }
 setInterval(updateHabitTimersUI, 1000);
+/* ============================================================
+   CRIPTOGRAFIA DE NÍVEL MILITAR (VAULT)
+   ============================================================ */
+const Vault = {
+  async hashPwd(pwd) {
+    const hash = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(pwd));
+    return Array.from(new Uint8Array(hash)).map(b=>b.toString(16).padStart(2,'0')).join('');
+  },
+  async deriveKey(pwd, salt) {
+    const material = await crypto.subtle.importKey("raw", new TextEncoder().encode(pwd), "PBKDF2", false, ["deriveKey"]);
+    return crypto.subtle.deriveKey({name: "PBKDF2", salt: salt, iterations: 100000, hash: "SHA-256"}, material, {name: "AES-GCM", length: 256}, false, ["encrypt", "decrypt"]);
+  },
+  async encryptItem(item, pwd) {
+    if(item.isEncrypted) return item; // Já está criptografado
+    const salt = crypto.getRandomValues(new Uint8Array(16));
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const key = await this.deriveKey(pwd, salt);
+    const encoded = new TextEncoder().encode(JSON.stringify(item));
+    const encrypted = await crypto.subtle.encrypt({name: "AES-GCM", iv}, key, encoded);
+    return { id: item.id, isEncrypted: true, salt: Array.from(salt), iv: Array.from(iv), data: Array.from(new Uint8Array(encrypted)) };
+  },
+  async decryptItem(encItem, pwd) {
+    if(!encItem.isEncrypted) return encItem; // Já é texto limpo
+    try {
+      const salt = new Uint8Array(encItem.salt); const iv = new Uint8Array(encItem.iv); const data = new Uint8Array(encItem.data);
+      const key = await this.deriveKey(pwd, salt);
+      const decrypted = await crypto.subtle.decrypt({name: "AES-GCM", iv}, key, data);
+      const item = JSON.parse(new TextDecoder().decode(decrypted));
+      item.id = encItem.id; // Preserva o ID no banco
+      return item;
+    } catch(e) { throw new Error('Senha incorreta ou dados corrompidos'); }
+  }
+};
+
+function promptMasterPassword(title, callback) {
+  openSheet({
+    title: title,
+    buildFields: (box) => {
+      box.appendChild(h('div', {style:'font-size:13px; color:var(--danger); font-weight:600; margin-bottom:12px; line-height:1.4;'}, 'Criptografia AES-256 ativa. Se você perder esta senha, seus dados não poderão ser recuperados por NINGUÉM.'));
+      box.appendChild(fieldWrap('Senha Mestra', h('input', {type:'password', id:'f-master-pwd', placeholder:'Sua chave secreta...'})));
+    },
+    submitLabel: 'Confirmar',
+    onSubmit: async () => {
+      const pwd = document.getElementById('f-master-pwd').value;
+      if(!pwd) { toast('Digite a senha'); return false; }
+      const savedHash = localStorage.getItem('master-hash');
+      const currentHash = await Vault.hashPwd(pwd);
+      if (!savedHash) {
+         if(!confirm('Atenção: Esta será sua Senha Mestra permanente para trancar/destrancar qualquer coisa no app. Confirma?')) return false;
+         localStorage.setItem('master-hash', currentHash);
+      } else if (savedHash !== currentHash) {
+         toast('Senha incorreta!'); return false;
+      }
+      closeSheet(); callback(pwd); return false;
+    }
+  });
+}
+
+function injectPadlocks() {
+  const locked = JSON.parse(localStorage.getItem('locked-modules')||'[]');
+  MODULES.forEach(m => {
+    const header = document.getElementById(m.key + '-header');
+    if (header && !header.querySelector('.lock-btn')) {
+      const btn = h('button', {
+        class: 'header-action lock-btn', id: 'lock-btn-' + m.key,
+        style: 'margin-left: 8px; font-size: 16px;',
+        onclick: () => toggleModuleLock(m.key)
+      }, locked.includes(m.key) ? '🔒' : '🔓');
+      header.appendChild(btn);
+    }
+  });
+}
+
+function toggleModuleLock(key) {
+  const lockedArr = JSON.parse(localStorage.getItem('locked-modules')||'[]');
+  const isLocked = lockedArr.includes(key);
+  const title = isLocked ? 'Destravar Módulo' : 'Criptografar Módulo';
+  
+  promptMasterPassword(title, async (pwd) => {
+    toast('Processando criptografia...');
+    try {
+      const items = await dbAll(key);
+      for (let item of items) {
+        let processed = isLocked ? await Vault.decryptItem(item, pwd) : await Vault.encryptItem(item, pwd);
+        await dbPut(key, processed);
+      }
+      // Atualiza o estado
+      let newArr = isLocked ? lockedArr.filter(k => k !== key) : [...lockedArr, key];
+      localStorage.setItem('locked-modules', JSON.stringify(newArr));
+      
+      document.getElementById('lock-btn-' + key).textContent = isLocked ? '🔓' : '🔒';
+      renderModule(key); // Recarrega a tela instantaneamente
+      toast(isLocked ? 'Módulo Destravado' : 'Travado e Criptografado 🔒');
+      updateHomeStats(); // Atualiza a Home para ocultar os dados travados
+    } catch (e) {
+      console.error(e); toast('Erro! Senha errada ou arquivo corrompido.');
+    }
+  });
+}
 
 function wireFilterTabs(){
   document.querySelectorAll('#screen-tasks .f-tab').forEach(btn=>{
@@ -1432,7 +1562,7 @@ function wireFilterTabs(){
 async function init(){
   loadTheme();
   try{ await openDatabase(); }catch(err){ toast('Não foi possível abrir o banco local.'); console.error(err); return; }
-  buildTileGrid(); setupGreeting(); wireFilterTabs(); await updateHomeStats();
+  buildTileGrid(); injectPadlocks(); setupGreeting(); wireFilterTabs(); await updateHomeStats();
 }
 document.addEventListener('DOMContentLoaded', init);
 </script>
