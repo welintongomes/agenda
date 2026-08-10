@@ -254,7 +254,7 @@ body.dark-theme #app { box-shadow: 0 0 60px rgba(0,0,0,0.5); }
 .sheet h3{font-size:18px;font-weight:700;letter-spacing:-.2px;}
 .field{display:flex;flex-direction:column;gap:6px;}
 .field label{font-size:12.5px;font-weight:700;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.3px;}
-.field input[type=text], .field input[type=number], .field input[type=date], .field input[type=time], .field input[type=tel], .field textarea, .field select{
+.field input[type=text], .field input[type=number], .field input[type=date], .field input[type=time], .field input[type=tel], .field input[type=password], .field textarea, .field select{
   border:1.5px solid var(--line); background:var(--surface-2); border-radius:var(--r-sm); padding:11px 12px; font-size:15px; color:var(--ink); width:100%; outline:none;
 }
 .field input:focus,.field textarea:focus,.field select:focus{border-color:var(--accent);}
@@ -334,10 +334,15 @@ body.dark-theme #app { box-shadow: 0 0 60px rgba(0,0,0,0.5); }
   <div class="list" id="search-results" style="display: none; padding: 16px var(--sp-5) 100px; max-height: 491.2px;min-height: 491.1px; overflow-y: auto;"></div>
   <div class="tile-grid" id="tile-grid" style="max-height: 460px;min-height: 459.9px; overflow-y: auto ;scrollbar-color: rgb(100 98 90 / 55%) rgba(255, 255, 255, .05);scrollbar-width: thin;"></div>
   <div class="home-header"> 
+        <!-- NOVO: Filtros da Busca Global (nasce invisível) -->
+    <div class="chip-picker" id="global-search-filters" style="margin-top:12px; display:none; flex-wrap:nowrap; overflow-x:auto; scrollbar-width:none; padding-bottom:4px; -webkit-overflow-scrolling:touch;"></div>
+    
     <div class="search-wrapper">
-      <input type="text" id="global-search" placeholder="Buscar tarefas, notas, compras..." oninput="handleGlobalSearch()">
+      <input type="text" id="global-search" placeholder="Buscar anotações, tarefas, diário..." oninput="handleGlobalSearch()" onfocus="enterSearchMode()">
       <button class="clear-search" id="clear-search-btn" onclick="clearSearch()" style="display: none;">✕</button>
     </div>
+    <!-- NOVO: Filtros da Busca Global (nasce invisível) -->
+    <div class="chip-picker" id="global-search-filters" style="margin-top:12px; display:none; flex-wrap:nowrap; overflow-x:auto; scrollbar-width:none; padding-bottom:4px; -webkit-overflow-scrolling:touch;"></div>
     <div class="stat-row" id="stat-row"></div>
     
   </div>
@@ -807,7 +812,10 @@ async function updateHomeStats(){
     if (!document.getElementById('pulse-style')) document.head.appendChild(h('style', {id: 'pulse-style'}, '@keyframes pulse { 0% {transform: scale(1);} 50% {transform: scale(1.15);} 100% {transform: scale(1);} }'));
   }
 
-  if (document.getElementById('global-search').value) handleGlobalSearch();
+  // NOVO: Atualiza a busca em tempo real mesmo se o texto estiver vazio, mas o modo de pesquisa estiver aberto!
+  if (typeof isSearchMode !== 'undefined' && isSearchMode) {
+    handleGlobalSearch();
+  }
 }
 
 function buildStatChips(pendingCount, balance, wCount){
@@ -841,59 +849,184 @@ function setupGreeting(){
   document.getElementById('date-text').textContent=new Date().toLocaleDateString('pt-BR',{weekday:'long', day:'numeric', month:'long'});
 }
 
-/* ============================================================
-   BUSCA GLOBAL E BACKUP
-   ============================================================ */
-function clearSearch() { document.getElementById('global-search').value = ''; handleGlobalSearch(); }
-async function handleGlobalSearch() {
-  const input = document.getElementById('global-search'); const q = input.value.toLowerCase().trim();
-  const grid = document.getElementById('tile-grid'); const resBox = document.getElementById('search-results');
-  const hint = document.querySelector('.hint-footer'); const clearBtn = document.getElementById('clear-search-btn');
 
-  if (!q) {
+/* ============================================================
+   BUSCA GLOBAL E BACKUP (Atualizado com Chips e Diário)
+   ============================================================ */
+let globalSearchFilter = 'Todos';
+let isSearchMode = false;
+
+// Entra no modo de busca assim que clica na caixa de texto
+function enterSearchMode() {
+  isSearchMode = true;
+  handleGlobalSearch();
+}
+
+// Limpa tudo e volta para a tela inicial
+function clearSearch() { 
+  document.getElementById('global-search').value = ''; 
+  globalSearchFilter = 'Todos';
+  isSearchMode = false;
+  document.getElementById('global-search-filters').style.display = 'none'; // Esconde os filtros
+  handleGlobalSearch(); 
+}
+
+// Desenha os Chips abaixo da barra de pesquisa
+function renderGlobalSearchChips() {
+  const container = document.getElementById('global-search-filters');
+  container.style.display = 'flex';
+  container.innerHTML = '';
+  // NOVO CHIP: Hábitos
+  const cats = ['Todos', 'Tarefas', 'Hábitos', 'Notas', 'Diário', 'Compras', 'Gastos', 'Contatos'];
+  
+  cats.forEach(c => {
+    container.appendChild(h('button', {
+      type: 'button', class: globalSearchFilter === c ? 'active' : '', style: 'flex: 0 0 auto;',
+      onclick: () => { globalSearchFilter = c; handleGlobalSearch(); }
+    }, c));
+  });
+}
+
+async function handleGlobalSearch() {
+  const input = document.getElementById('global-search'); 
+  const q = input.value.toLowerCase().trim();
+  const grid = document.getElementById('tile-grid'); 
+  const resBox = document.getElementById('search-results');
+  const hint = document.querySelector('.hint-footer'); 
+  const clearBtn = document.getElementById('clear-search-btn');
+
+  if (!isSearchMode && !q) {
     grid.style.display = 'grid'; hint.style.display = 'block'; resBox.style.display = 'none'; resBox.innerHTML = ''; clearBtn.style.display = 'none';
+    document.getElementById('global-search-filters').style.display = 'none';
     return;
   }
-  clearBtn.style.display = 'flex'; grid.style.display = 'none'; hint.style.display = 'none'; resBox.style.display = 'flex'; resBox.innerHTML = '';
-  
-  const [tasks, notes, contacts, expenses, shopping] = await Promise.all([dbAll('tasks'), dbAll('notes'), dbAll('contacts'), dbAll('expenses'), dbAll('shopping')]);
-  let results = [];
 
-  tasks.forEach(t => { if ((t.text || '').toLowerCase().includes(q)) results.push({ type: 'task', item: t, title: t.text, sub: t.done ? 'Concluída' : 'Pendente' }); });
-  shopping.forEach(s => { if ((s.name || '').toLowerCase().includes(q)) results.push({ type: 'shopping', item: s, title: s.name, sub: 'Lista de compras' }); });
-  notes.forEach(n => { if ((n.title || '').toLowerCase().includes(q) || (n.content || '').toLowerCase().includes(q)) results.push({ type: 'note', item: n, title: n.title || '(sem título)', sub: 'Nota' }); });
-  contacts.forEach(c => { if ((c.name || '').toLowerCase().includes(q) || (c.notes || '').toLowerCase().includes(q) || (c.phone || '').includes(q)) results.push({ type: 'contact', item: c, title: c.name, sub: c.category + (c.phone ? ' · ' + c.phone : '') }); });
-  expenses.forEach(e => { if ((e.description || '').toLowerCase().includes(q) || (e.category || '').toLowerCase().includes(q)) results.push({ type: 'expense', item: e, title: e.description || e.category, sub: `R$ ${e.amount} · ${humanDateFull(e.date)}` }); });
+  clearBtn.style.display = 'flex'; grid.style.display = 'none'; hint.style.display = 'none'; resBox.style.display = 'flex'; resBox.innerHTML = '';
+  renderGlobalSearchChips();
+
+  // NOVO: Adicionado as bases de dados de habits e habitLogs!
+  const [tasks, notes, contacts, expenses, shopping, journal, habits, habitLogs] = await Promise.all([
+    dbAll('tasks'), dbAll('notes'), dbAll('contacts'), dbAll('expenses'), dbAll('shopping'), dbAll('journal'), dbAll('habits'), dbAll('habitLogs')
+  ]);
+  
+  let results = [];
+  const todayISO = todayIso();
+  const now = Date.now();
+
+  if (globalSearchFilter === 'Todos' || globalSearchFilter === 'Tarefas') {
+    tasks.forEach(t => { if (!t.isEncrypted && (!q || (t.text || '').toLowerCase().includes(q))) results.push({ type: 'task', item: t, title: t.text, sub: t.done ? 'Concluída' : 'Pendente' }); });
+  }
+  if (globalSearchFilter === 'Todos' || globalSearchFilter === 'Compras') {
+    shopping.forEach(s => { if (!s.isEncrypted && (!q || (s.name || '').toLowerCase().includes(q))) results.push({ type: 'shopping', item: s, title: s.name, sub: 'Lista de compras' }); });
+  }
+  
+  // INÍCIO DO PROCESSAMENTO DOS HÁBITOS NA BUSCA
+  if (globalSearchFilter === 'Todos' || globalSearchFilter === 'Hábitos') {
+    habits.forEach(hb => {
+      if (!hb.isEncrypted && (!q || (hb.name || '').toLowerCase().includes(q))) {
+        const isTimer = hb.type === 'timer';
+        let checkText = '', extraClass = '', extraStyle = '', sub = '', hasTimer = false, action = null;
+        
+        // Copiamos a lógica de cálculo do botão para a Busca
+        if (isTimer) {
+          const target = hb.target || 0; const currentStep = hb.currentStep || 0;
+          const isWaiting = (hb.readyAt && hb.readyAt > now); const isDone = target > 0 && currentStep >= target;
+          if (isWaiting) { checkText = '⏳'; extraStyle = 'opacity: 0.8; font-size: 11px;'; hasTimer = true; } 
+          else if (isDone) { checkText = '✓'; extraClass = ' on ck-habits'; sub = 'Série concluída!'; } 
+          else if (currentStep > 0) { checkText = currentStep; extraStyle = 'border-color: var(--c-habits); color: var(--c-habits); font-size: 13px; font-weight: 700; background: rgba(62,122,93,0.12);'; sub = target > 0 ? `${currentStep} de ${target}` : `${currentStep} feitos`; }
+          else { sub = target > 0 ? `Meta: ${target} reps` : 'Pronto para iniciar'; }
+          action = (e) => { e.stopPropagation(); if(!isWaiting) toggleHabitTimer(hb); else toast('Aguarde o tempo'); };
+        } else {
+          const target = hb.target || 1;
+          const todayLog = habitLogs.find(l => l.habitId === hb.id && l.date === todayISO);
+          const countToday = todayLog ? (todayLog.count || 1) : 0;
+          const doneToday = countToday >= target;
+          const duration = hb.duration || 0; 
+          const logDates = new Set(habitLogs.filter(l => l.habitId === hb.id && (l.count || 1) >= target).map(l => l.date));
+          const isTotallyFinished = duration > 0 && logDates.size >= duration;
+          const isWaitingInterval = (!doneToday && countToday > 0 && countToday < target && hb.readyAt && hb.readyAt > now);
+
+          if (isWaitingInterval) { checkText = '⏳'; extraStyle = 'opacity: 0.8; font-size: 11px;'; hasTimer = true; } 
+          else if (isTotallyFinished && doneToday) { checkText = '🌟'; extraClass = ' on ck-habits'; extraStyle = 'background: var(--c-expenses); border-color: var(--c-expenses); font-size: 14px;'; sub = 'Concluído!'; } 
+          else if (doneToday) { checkText = '✓'; extraClass = ' on ck-habits'; sub = 'Concluído hoje'; } 
+          else if (countToday > 0) { checkText = countToday; extraStyle = 'border-color: var(--c-habits); color: var(--c-habits); font-size: 13px; font-weight: 700; background: rgba(62,122,93,0.12);'; sub = `Hoje: ${countToday} de ${target}`; }
+          else { sub = `Meta: ${target} vezes`; }
+          action = (e) => { e.stopPropagation(); stepHabitToday(hb); };
+        }
+        results.push({ type: 'habit', item: hb, title: hb.name, sub: (hb.category || 'Saúde') + (sub ? ' · ' + sub : ''), checkProps: { checkText, extraClass, extraStyle, action }, hasTimer, readyAt: hb.readyAt }); 
+      }
+    });
+  }
+  // FIM DOS HÁBITOS
+
+  if (globalSearchFilter === 'Todos' || globalSearchFilter === 'Notas') {
+    notes.forEach(n => { if (!n.isEncrypted && (!q || (n.title || '').toLowerCase().includes(q) || (n.content || '').toLowerCase().includes(q))) results.push({ type: 'note', item: n, title: n.title || '(sem título)', sub: (n.category || 'Geral') + ' · Nota' }); });
+  }
+  if (globalSearchFilter === 'Todos' || globalSearchFilter === 'Diário') {
+    journal.forEach(j => { 
+      if (!j.isEncrypted && (!q || (j.text || '').toLowerCase().includes(q))) {
+        const raw = (j.text||'').replace(/\n/g,' '); const preview = raw.slice(0,60)+(raw.length>60?'…':'');
+        results.push({ type: 'journal', item: j, title: humanDateFull(j.date), sub: (j.mood||'📔') + ' · ' + preview }); 
+      }
+    });
+  }
+  if (globalSearchFilter === 'Todos' || globalSearchFilter === 'Contatos') {
+    contacts.forEach(c => { if (!c.isEncrypted && (!q || (c.name || '').toLowerCase().includes(q) || (c.notes || '').toLowerCase().includes(q) || (c.phone || '').includes(q))) results.push({ type: 'contact', item: c, title: c.name, sub: (c.category||'Contato') + (c.phone ? ' · ' + c.phone : '') }); });
+  }
+  if (globalSearchFilter === 'Todos' || globalSearchFilter === 'Gastos') {
+    expenses.forEach(e => { if (!e.isEncrypted && (!q || (e.description || '').toLowerCase().includes(q) || (e.category || '').toLowerCase().includes(q))) results.push({ type: 'expense', item: e, title: e.description || e.category, sub: `R$ ${e.amount} · ${humanDateFull(e.date)}` }); });
+  }
 
   if (results.length === 0) { resBox.appendChild(emptyState('🔍', 'Nada encontrado', 'Tente pesquisar por outros termos')); return; }
 
-  const todayISO = todayIso();
   results.forEach(r => {
     const isDone = (r.type === 'task' && r.item.done) || (r.type === 'shopping' && r.item.checked);
     const row = h('div', { class: 'item' + (isDone ? ' done' : '') });
     
+    // Tratamento dos ícones e checkboxes para cada modo
     if (r.type === 'task' || r.type === 'shopping') {
       const checkClass = r.type === 'task' ? 'ck-tasks' : 'ck-shopping';
       row.appendChild(h('div', { class: 'check' + (isDone ? ' on ' + checkClass : ''), onclick: (e) => { e.stopPropagation(); if (r.type === 'task') toggleTask(r.item); else if (r.type === 'shopping') toggleShopping(r.item); } }, isDone ? '✓' : ''));
+    } else if (r.type === 'habit') {
+      // Injeta o botão interativo do hábito direto na busca!
+      const cp = r.checkProps;
+      row.appendChild(h('div', { class: 'check' + cp.extraClass, style: cp.extraStyle, onclick: cp.action }, cp.checkText));
     } else {
       let icon = '', color = '';
       if (r.type === 'note') { icon = '📝'; color = 'var(--c-notes)'; }
       if (r.type === 'contact') { icon = '📇'; color = 'var(--c-contacts)'; }
       if (r.type === 'expense') { icon = '💰'; color = 'var(--c-expenses)'; }
+      if (r.type === 'journal') { icon = '📔'; color = 'var(--c-journal)'; } 
       row.appendChild(h('div', { style: `background:${color}; color:#fff; width:34px; height:34px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:16px; flex: 0 0 auto;` }, icon));
     }
 
     const grow = h('div', { class: 'grow', onclick: () => {
-      if (r.type === 'task') openTaskForm(r.item); else if (r.type === 'note') openNoteForm(r.item); else if (r.type === 'contact') openContactForm(r.item); else if (r.type === 'expense') openExpenseForm(r.item); else if (r.type === 'shopping') toggleShopping(r.item); 
+      if (r.type === 'task') openTaskForm(r.item); 
+      else if (r.type === 'note') openNoteForm(r.item); 
+      else if (r.type === 'contact') openContactForm(r.item); 
+      else if (r.type === 'expense') openExpenseForm(r.item); 
+      else if (r.type === 'shopping') toggleShopping(r.item); 
+      else if (r.type === 'journal') openJournalForm(r.item);
+      else if (r.type === 'habit') openHabitForm(r.item); // Permite editar o hábito!
     }});
+    
     grow.appendChild(h('div', { class: 'i-title' }, r.title));
     
+    // Tratamento dos textos descritivos abaixo do título
     if (r.type === 'task') {
       const t = r.item; const overdue = t.due && t.due < todayISO && !t.done; const subParts = [];
       if (t.due) subParts.push((overdue ? '⚠️ atrasada · ' : '') + humanDateFull(t.due));
       if (t.priority && t.priority !== 'baixa') subParts.push(t.priority === 'alta' ? '🔴 alta' : '🟡 média');
       grow.appendChild(h('div', { class: 'i-sub', style: overdue ? 'color:var(--danger);font-weight:700;' : '' }, subParts.length ? subParts.join(' · ') : r.sub));
-    } else { grow.appendChild(h('div', { class: 'i-sub' }, r.sub)); }
+    } else if (r.type === 'habit' && r.hasTimer) {
+      // Injeta a mesma classe do cronômetro global, ele passa a girar ao vivo na busca!
+      const cd = h('div',{class:'i-sub habit-timer', 'data-ready': r.readyAt, style:'color:var(--c-habits); font-weight:700;'});
+      cd.textContent = 'Calculando...';
+      grow.appendChild(cd);
+    } else { 
+      grow.appendChild(h('div', { class: 'i-sub' }, r.sub)); 
+    }
+    
     row.appendChild(grow); resBox.appendChild(row);
   });
 }
